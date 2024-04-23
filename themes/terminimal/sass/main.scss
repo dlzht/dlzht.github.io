@@ -135,7 +135,7 @@ pre {
   border-bottom: 1px solid rgba(255, 255, 255, .1);
 
   @media (max-width: $phone-max-width) {
-    white-space: pre-wrap;
+    white-space: pre;
     word-wrap: break-word;
   }
 
