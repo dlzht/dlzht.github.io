@@ -1,0 +1,32 @@
+# The URL the site will be built for
+base_url = "https://dlzht.github.io"
+theme = "terminimal"
+compile_sass = true
+build_search_index = false
+taxonomies = [
+  { name = "tags"},
+]
+
+
+[markdown]
+# Whether to do syntax highlighting
+# Theme can be customised by setting the `highlight_theme` variable to a theme supported by Zola
+highlight_code = true
+highlight_theme = "monokai"
+
+[extra]
+# Put all your custom variables here
+accent_color = "blue-light"
+background_color = "light"
+show_only_description = false
+logo_text = "QianQi dlzht@protonmail.com"
+copyright_html = "Name:&nbsp;QianQi | Email:&nbsp;<a href=mailto:dlzht@protonmail.com>dlzht@protonmail.com</a> | TG:&nbsp;<a href='https://t.me/dlzh'>https://t.me/dlzht</a>"
+enable_post_view_navigation = true
+post_view_navigation_prompt = "++"
+menu_items = [
+  {name = "Home", url = "$BASE_URL"},
+  {name = "Tags", url = "$BASE_URL/tags"},
+  {name = "About", url = "$BASE_URL/about"},
+  {name = "Archive", url = "$BASE_URL/archive"},
+#  {name = "Github", url = "https://github.com/dlzht", newtab = true},
+]

@@ -1,0 +1,138 @@
++++
+title = "`Rust`异步第一篇: `Future`和`Runtime`"
++++
+
+`Rust`的异步程序由`Future`和`Runtime`构成, `Future`在标准库中定义, 表示一个还没完成计算的值, 也就是异步任务, 而`Runtime`由第三方库实现, 负责异步任务的调度和执行. 异步程序的运行就相当于把`Future`委托给`Runtime`, 让`Runtime`不断地去推动`Future`向前计算的过程. 
+
+```rust
+fn main() {
+  // 创建 Runtime
+  let rt = tokio::runtime::Runtime::new().unwrap();
+  rt.block_on(run_main());
+}
+
+// 创建 Future
+async fn run_main() -> impl Future<Output=u8> {
+  // 打开文件 ./bytes
+  let mut file = tokio::fs::File::open("./bytes").await.unwrap();
+  // 从中读取一个字节
+  let byte =  file.read_u8().await.unwrap();
+  return byte;
+}
+```
+
+例如上面的代码中, `run_main`描述了任务内容(从文件中读取一个字节), 这个函数返回或者说创建了一个`Future`, 而在`main`函数中, 先是创建了一个`Runtime`, 然后把`Future`委托给这个`Runtime`去调度执行了. 除了关键字`async/await`和返回类型`impl Future`, 其他的与同步代码相比, 好像没有太大的区别. 事实也是如此, 通过`async/await`这两个语法糖, 编写异步的`Rust`代码基本和写同步代码差不多. 这段异步程序运行的背后, 正是`Future`和`Runtime`的互相配合和协作, 下一篇会介绍`async/await`是如何转化到`Future`的, 接下来就来看看`Future`和`Runtime`在异步世界中承担了什么样的角色.
+
+#### 异步任务: `Future`
+
+`Future`在标准库里被定义为`trait`, 也就是说只要某个类型实现了`Future`, 那么这个类型的实例就可以是异步任务了. 定义里的内容很简单, 一个关联类型`Output`和一个方法`poll`. `Output`是`Future`计算出的结果的类型, `poll`是`Future`每次执行时调用的方法. 
+
+```rust
+pub trait Future {
+  type Output;
+  fn poll(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output>;
+}
+```
+
+`poll`方法的返回结果是`Poll<Self::Output>`, `Poll`是个枚举类型, 有两种情况, 一种是`Poll::Pending`, 表示任务尚未完成, 还要下次继续执行; 另一种是`Poll::Ready<Output>>`, 表示任务执行完毕, 返回了一个`Output`类型的值. 与操作系统的线程类似, `Future`在逐步推进的过程中, 也有几个状态: 
+
++ 就绪: `Future`没有需要等待的事件, 随时可以被调度执行
++ 执行: 就绪的`Future`被调度到线程执行, 对应的指令被执行
++ 等待: `Future`需要等待事件, 让出执行, 直到事件就绪被唤醒
+
+`Future`执行的整个过程大概是这样的, 首先, 就绪的`Future`被调度到线程上执行, 遇到需要等待的事件, 就让出执行, 陷入等待, 其他的`Future`就可以到线程上执行; 然后, 等待的事件就绪后`Future`再被唤醒, 准备再次被调度到线程上执行, 如此经历多次, 最终计算出一个结果. 结合前面的定义, 从状态转换的角度来看`Future`需要做哪些事:
+
++ 就绪 -> 执行: `Runtime`调度异步任务, 也就是调用`Future`的`poll`方法, 对应的逻辑指令得到执行. 由于`Future`会多次执行, 所以`poll`也会多次被调用, 所以`poll`需要能记住上次是执行到哪, 这次才能"继续"执行
+
++ 执行 -> 等待: `Future`在执行过程中需要等待事件, 比如等网络数据到达才能继续, 这时`poll`方法就不能阻塞当前线程, 而是要先让出执行, 让其他的`Future`能到这个线程上执行. `Future`在让出前, 还得为唤醒自己埋下伏笔
+
++ 等待 -> 就绪: 当等待的事件就绪了, 比如网络数据包已经到达了, 此时`Future`就要被唤醒, 而这个唤醒正是通过前面埋下的伏笔来实现的, 唤醒后`Future`的状态就变成就绪, 准备再次被调度到线程执行, 任务的计算过程得到推进
+
+第三种状态转换, 即`等待 -> 就绪`的过程中, 主要是调用`poll`方法的入参`cx`里, 包含的一个`waker`实例的`wake`方法, 由`Runtime`负责实现, 其实就是把`Future`放到就绪任务的队列中. 另外两种状态转换则需要`poll`方法的实现满足一定的要求, 一是能继续执行, 二是能唤醒埋点, 三是能让出线程.
+
+以下面这个`MainFuture`的例子来具体说明`poll`方法到底如何实现这些要求. `MainFuture`是个简单的异步任务, 首先是打印`MainFuture Pending`, 然后等待一秒, 最后打印`MainFuture Ready`. 两次打印是要执行的任务, 一秒的等待是需要等待的事件.
+
+```rust
+enum MainFuture { Start, End }
+
+impl Future for MainFuture {
+  type Output = i32;
+
+  fn poll(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
+    return match *self {
+      MainFuture::Start => {
+        println!("Future Pending");
+        // 变更状态
+        *self = MainFuture::End;
+        // 唤醒埋点
+        let waker = cx.waker().clone();
+        std::thread::spawn(|| {
+          std::thread::sleep(std::time::Duration::from_secs(1));
+          waker.wake();
+        });
+        // 让出执行
+        Poll::Pending
+      }
+      MainFuture::End => {
+        println!("Future Ready");
+        // 执行完毕
+        Poll::Ready(1)
+  }}}
+}
+
+// 从 MainFuture:Start 开始执行
+let f = MainFuture::Start; rt.block_on(f);
+```
+`MainFuture`是个简单的异步任务, 运行上面的代码首先会打印`Future Pending`, 然后等待一秒, 最后打印`Future Ready`. 两次打印是要执行的任务, 一秒的等待是需要等待的事件. 以这个`MainFuture`的例子来具体说明`poll`方法的实现到底如何满足这些要求. 
+
+第一次执行时`MainFuture`的值是`MainFuture::Start`, 进入了`match`的第一个分支. 在这个代码分支中, 先是执行了相应的逻辑, 打印了`Future Pending`. 然后把`MainFuture`的值变更成了`MainFuture::End`, 而这个值正是下次继续执行是需要的分支条件, 所以在下次执行时, `poll`会执行下一个`match`分支中的代码. 所以`Future`通过变更状态(这里的状态不是指等待或者就绪这样的运行状态, 而是`Future`实例自身维护的字段), 通过状态跳转到不同的分支, 实现了"继续执行"的语义.
+
+入参`cx`中的`waker`是可以用来唤醒等待的`Future`的, 这边的代码创建了一个新线程, 然后把`waker`复制到了一份到新线程中, 在新线程里设置先休眠一秒, 然后调用`waker.wake()`唤醒`MainFuture`. 所以唤醒埋点, 就是`poll`会把`waker`传递出去, 然后在将来的某个时刻, 对应的唤醒方法会被调用. 这边通常会使用的方法, 一个是阻塞线程池, 对某些操作用专门的线程来等待; 另一个是`epoll`这类的机制, 同时注册很多的等待事件, 然后不断地轮询监听. 等线程阻塞完成或者`epoll`返回就绪通知, 就唤醒对应的`Future`.
+
+在`Rust`里, 不带分号的`Poll::Pending`就相当于`return Poll::Pending;`, 使用让出线程很简单, 直接用`return`语句返回结果. `Runtime`执行`Future`时, 调用`Future`的`poll`方法, 线程的控制权从`Runtime`转交给`Future`, 当`Future`需要等待或者执行完成, 就通过`return`返回, 线程控制权再从`Future`返回到`Runtime`. 所以这边`Future`和`Runtime`是相对平等的, `Runtime`不会强制中断`Future`, 线程控制权是需要`Future`主动让出的, 任务的调度执行是个互相协作的过程.
+
+在抢占式调度中, 因为任务被调度出去的点是无法确定的, 为了下次能够继续执行, 只能保存任务执行以来产生的数据, 即需要保存运行栈. 但`Future`让出执行的点是确定的, 需要保存哪些数据在编译时就可以确定, 这里就是`MainFuture`本身, 所以`Rust`的`Future`不需要保存运行栈, 保存的是`Future`本身.
+
+`Rust`的异步任务就是实现的`Future`的实例, 而实例在计算机里就是一块数据字段加上一段指令代码, 没有特殊的魔法. `poll`的实现满足了继续执行, 唤醒埋点和让出执行, 再配合上`Runtime`的调度执行, 异步程序就可以顺利运行起来了, 接下来看`Runtime`相关的内容.
+
+#### 异步运行时: `Runtime`
+
+创建了`Future`, 也实现了`poll`, 现在再来回想一下`Future`的运作过程, 看看`Runtime`在这个过程中需要做哪些事. 首先, 就绪的`Future`会被调度执行, 这就需要`Runtime`不断地调用相应的`poll`方法; 其次, 实际代码中不可避免地会有读写文件, 收发网络数据等操作, 如果每个异步程序里都要编写一套对应的异步代码, 这多累呀; 然后, `Future`会等待`IO`, 时间或者信号等事件, 而处理这些事件就要和操作系统打交道, 挺麻烦的, 如果`Runtime`也能帮忙处理下事件就好了; 最后, 等到事件就绪了, 就要唤醒`Future`, 后续才能被执行, 继续执行下去.
+
+所以`Runtime`(以`tokio`为例)中, 提供了调度器来调度执行`Future`, 提供了一套与标准库类似的异步版本的文件网络库, 提供了跨平台的处理事件的反应器, 提供了唤醒器`waker`的实现.
+
+调度器负责不断地推动任务, 核心步骤就是从就绪队列中取出`Future`, 然后调用`poll`方法, 形如下面代码. 在调度器[`CurrentThread`](https://github.com/tokio-rs/tokio/blob/tokio-1.35.0/tokio/src/runtime/scheduler/current_thread/mod.rs)的`CoreGuard.block_on`方法中可以看到类似的逻辑.
+
+```rust
+while let Some(fut) = ready_futs.next() {
+  fut.poll(...)
+}
+```
+
+反应器负责处理`IO`, 时间和信号相关事件, 因为`Future`会等待在这些事件上, 所以反应器要持续地关注对这些事件的状态, 一旦事件就绪, 就调用对应`waker`的唤醒方法. `tokio`中的相关实现可以看[`Driver`](https://github.com/tokio-rs/tokio/blob/tokio-1.35.0/tokio/src/runtime/io/driver.rs)的`turn`方法.
+
+```rust
+// Linux 平台上可以用 epoll 机制
+// timeout 参数则可以用来处理时间事件
+let events = epoll.poll(timeout);
+for event in events {
+  let waker = event.waker();
+  waker.wake();
+}
+```
+
+`tokio`里的[`waker`](https://github.com/tokio-rs/tokio/blob/tokio-1.35.0/tokio/src/runtime/task/waker.rs)唤醒器并不复杂, 包含一个指向对应`Future`的指针和一个函数表, 唤醒方法`wake`就是把指针指向的`Future`放入到就绪队列中.
+```rust
+let fut = waker.fut();
+ready_futs.push(fut);
+```
+
+编写异步程序时, 很多时候并不需要直接和事件, 反应器这些打交道, 因为在调用`Runtime`提供的异步方法时已经内置了这些步骤, 所以`Rust`的异步开发有时候是非常简单的. 将`Future`和`Runtime`结合起来, 异步程序的运行的过程大致就如下所示:
+
+1. 调度器从就绪队列中选择`Future`, 并生成一个对应的唤醒器作为入参调用`Future`的`poll`方法
+2. `poll`方法执行过程中, 需要需要等待某个事件, 就把唤醒器和事件注册到反应器上, 然后让出执行
+3. 让出的线程可以执行其他就绪的`Future`, 而反应器收到注册事项后, 就持续关注这些事件的状态
+4. 一旦反应器查询到事件就绪, 就调用唤醒器唤醒任务, `Future`回到就绪队列中, 准备再次被调度执行
+
+
+
