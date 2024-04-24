@@ -20,7 +20,7 @@ accent_color = "blue-light"
 background_color = "light"
 show_only_description = false
 logo_text = "QianQi dlzht@protonmail.com"
-copyright_html = "Email:&nbsp;<a href=mailto:dlzht@protonmail.com>dlzht@protonmail.com</a> | TG:&nbsp;<a href='https://t.me/dlzh'>dlzht</a>"
+copyright_html = "Email:&nbsp;<a href=mailto:dlzht@protonmail.com>dlzht@protonmail.com</a>"
 enable_post_view_navigation = true
 post_view_navigation_prompt = "++"
 menu_items = [
