@@ -35,10 +35,10 @@
 {% macro earlier_later(page) %}
     {%- if config.extra.enable_post_view_navigation and page.lower or page.higher %}
         <div class="pagination">
-            <div class="pagination__title">
-                <span class="pagination__title-h">{{ config.extra.post_view_navigation_prompt }}</span>
-                <hr />
-            </div>
+            <!-- <div class="pagination__title"> -->
+                <!-- <span class="pagination__title-h">{{ config.extra.post_view_navigation_prompt }}</span> -->
+                <!-- <hr /> -->
+            <!-- </div> -->
             <div class="pagination__buttons">
                 {%- if page.higher %}
                     <span class="button previous">
