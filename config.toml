@@ -24,9 +24,9 @@ copyright_html = "Email:&nbsp;<a href=mailto:dlzht@protonmail.com>dlzht@protonma
 enable_post_view_navigation = true
 post_view_navigation_prompt = "++"
 menu_items = [
-  {name = "Home", url = "$BASE_URL"},
-  {name = "Tags", url = "$BASE_URL/tags"},
-  {name = "About", url = "$BASE_URL/about"},
-  {name = "Archive", url = "$BASE_URL/archive"},
+  {name = "主页", url = "$BASE_URL"},
+  {name = "标签", url = "$BASE_URL/tags"},
+  {name = "关于", url = "$BASE_URL/about"},
+  {name = "归档", url = "$BASE_URL/archive"},
 #  {name = "Github", url = "https://github.com/dlzht", newtab = true},
 ]
