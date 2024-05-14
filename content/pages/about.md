@@ -5,6 +5,6 @@ path = "about"
 
 Name: QianQi
 
-TG: [https://t.me/dlz]('https://t.me/dlzh)
+TG: [https://t.me/dlzht](https://t.me/dlzht)
 
 Email: [dlzht@protonmail.com](mailto:dlzht@protonmail.com)
