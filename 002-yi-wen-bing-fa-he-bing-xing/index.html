@@ -1,0 +1,252 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <script async src="https://www.googletagmanager.com/gtag/js?id=G-Q8CTC2C6DM"></script>
+    <script>
+        window.dataLayer = window.dataLayer || [];
+        function gtag(){dataLayer.push(arguments);}
+        gtag('js', new Date());
+        gtag('config', 'G-Q8CTC2C6DM');
+    </script>
+
+    <title></title>
+    
+    <meta http-equiv="content-type" content="text/html; charset=utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1">
+    <meta name="robots" content="noodp"/>
+
+    <link rel="stylesheet" href="https://dlzht.github.io/style.css">
+    <link rel="stylesheet" href="https://dlzht.github.io/color/blue-light.css">
+
+        <link rel="stylesheet" href="https://dlzht.github.io/color/background_light.css">
+    
+    <link rel="stylesheet" href="https://dlzht.github.io/font-hack-subset.css">
+
+    <meta name="description" content="">
+
+    <meta property="og:description" content="">
+    <meta property="og:title" content="">
+    <meta property="og:type" content="article">
+    <meta property="og:url" content="https://dlzht.github.io/002-yi-wen-bing-fa-he-bing-xing/">
+
+    <meta name="twitter:card" content="summary_large_image">
+    <meta name="twitter:description" content="">
+    <meta name="twitter:title" content="">
+    <meta property="twitter:domain" content="dlzht.github.io">
+    <meta property="twitter:url" content="https://dlzht.github.io/002-yi-wen-bing-fa-he-bing-xing/">
+
+    </head>
+
+<body class="">
+<div class="container">
+    
+    <header class="header">
+        <div class="header__inner">
+            <div class="header__logo">
+                    
+                <a href="https://dlzht.github.io" style="text-decoration: none;">
+                    <div class="logo">
+                      
+                            QianQi dlzht@protonmail.com
+                        
+                    </div>
+                </a>
+            </div>
+        </div>
+
+        
+        
+                <nav class="menu">
+            <ul class="menu__inner">
+                <li class="active"><a href="https://dlzht.github.io">主页</a></li>
+            
+                <li><a href="https://dlzht.github.io/tags">标签</a></li>
+            
+                <li><a href="https://dlzht.github.io/about">关于</a></li>
+            
+                <li><a href="https://dlzht.github.io/archive">归档</a></li>
+            </ul>
+        </nav>
+    
+    
+        
+    </header>
+    
+
+    <div class="content">
+        
+    <div class="post">
+        
+    <h1 class="post-title"><a href="https://dlzht.github.io/002-yi-wen-bing-fa-he-bing-xing/">译文: 并发和并行</a></h1>
+    <div class="post-meta-inline">
+        
+    <span class="post-date">
+            2024-04-26
+        </span>
+
+    </div>
+
+    
+        <span class="post-tags-inline">
+                :: tags:&nbsp;
+                <a class="post-tag" href="https://dlzht.github.io/tags/yi-bu/">#异步</a>&nbsp;
+                <a class="post-tag" href="https://dlzht.github.io/tags/yi-wen/">#译文</a></span>
+    
+
+        <div class="post-content">
+            <p>这是一篇翻译文章, 原文是<a rel="noopener" target="_blank" href="https://www.tedinski.com/2018/10/16/concurrency-vs-parallelism.html">Concurrency vs parellism</a>(by <a rel="noopener" target="_blank" href="https://www.github.com/tedinski">Ted Kaminski</a>). 文章主要向我们介绍了并发和并行的区别在哪, 以及是什么原因导致这两个概念变得模糊, 可以帮助我们理解现代并发设计中要解决的问题是什么.</p>
+<span id="continue-reading"></span><h2 id="what-s-the-difference">What’s the difference?</h2>
+<blockquote>
+<p>The difference is really quite trivial, but it takes a lot of work to get there:</p>
+<ol>
+<li>Concurrency is about handling (asynchronous, nondeterministic) events.</li>
+<li>Parallelism is about using hardware resources to do more at the same time.</li>
+</ol>
+<p>This is a nice, stark difference for a topic that often gets buried in a lot of confusion. After all, how did these smart book authors manage to confuse these two concepts if they’re as obviously different as I describe them above?</p>
+<p>The short answer is because the most basic programming model that we’ve used since forever ago intermixes the two in a confusing way.</p>
+</blockquote>
+<p>并发(concurrency)和并行(parallelism)之间的区别比较微妙:</p>
+<ol>
+<li>并发是关于事件(异步, 不那么确定的. 比如读取终端输入, 没法确定用户何时完成输入)处理.</li>
+<li>并行是关于同一时刻更有效地利用硬件资源(比如多个CPU核, 多台主机).</li>
+</ol>
+<p>对于一个经常淹没在混乱中的话题来说, 这其实是一个明显的区别, 只是为什么还有那么多聪明的人都会被这两个概念困惑呢? 原因简单地说, 那因为很多我们沿用至今的编程模式把这两个概念含糊地混杂在一起了.</p>
+<blockquote>
+<p>A process (or thread) pretends to be a sequential execution of instructions, but not only is this a lie because it’s interacting with operating system resources, it’s also a more fundamental lie. Every process (or thread) is a concurrent process, there’s no such thing as a sequential process, not really. We’ll get into this in a second.</p>
+<p>Meanwhile, because we rely on sequential synchronous execution, if we want to try to get more balls in the air, we need to actually resort to parallel execution. Instead of “submit read file A request, submit read file B request, wait for response” we often end up writing “in thread 1, read file A, in thread 2, read file B.” We were writing multi-threaded code back in the days of single-core processors. This era is still deeply grooved into people’s brains, and it’s still pervasive in OS API designs.</p>
+</blockquote>
+<p>一个进程(或者线程)是串行执行的指令, 这样的说法其实是有问题的, 因为线程始终在和操作系统打交道, 不存在完全串行的线程, 在后文中我们将看到这点.</p>
+<p>我们的程序不可避免的会依赖一些同步操作, 在这样的情况下如果想执行更多的任务, 并行无异于是一种可行的方式方式. 因此本来&quot;请求读文件A, 请求读文件B, 等待响应(就算A的响应还没有完成, 不阻塞继续请求读取B)&quot;的过程, 变成了&quot;在线程1里读取文件A, 在线程2里读取文件B&quot;. 多线程是单核时代的并发方案, 但那个时代的思想依然在影响着我们, 同步串行的设计普遍存在于操作系统的API中.</p>
+<blockquote>
+<p>The present state of asynchronous (non-networking) I/O on Linux is a giant, flaming garbage fire. A big part of the reason concurrency and parallelism are so conflated is that we get many purely synchronous API calls from the operating system (not just Linux), and to get around this inherent lack of concurrency in API design, we must resort to the parallelism of threads.</p>
+<ul>
+<li>LWN 2016: <a rel="noopener" target="_blank" href="https://lwn.net/Articles/671649/">Fixing asynchronous I/O, again</a></li>
+<li>LWN 2017: <a rel="noopener" target="_blank" href="https://lwn.net/Articles/724198/">Toward non-blocking asynchronous I/O</a></li>
+<li><a rel="noopener" target="_blank" href="https://docs.libuv.org/en/v1.x/fs.html">libuv documentation states that it uses a thread pool to emulate asynchronous I/O, using the synchronous APIs</a></li>
+<li>Windows offers <a rel="noopener" target="_blank" href="https://docs.microsoft.com/en-us/windows/desktop/fileio/i-o-completion-ports">I/O completion ports</a> which are legitimately good</li>
+</ul>
+</blockquote>
+<p>目前的Linux没有提供良好的异步I/O(不包含网络)支持, 而并发和并行之所以混乱的原因, 很大一部分就是因为操作系统(不仅Linux)的很多API调用是同步的. 因为操作系统提供的API不是为并发设计的, 使得上层应用只能用并行的多线程来实现并发.</p>
+<blockquote>
+<p>So on the one hand, we have a proliferation of synchronous APIs meaning we routinely had to use parallelism features to achieve concurrency. On the other hand, to use parallel features, you often also have to involve concurrency. Threads compute things, and then they have to communicate. Communication manifests as events.</p>
+<p>The immediate topics that arises after introducing threads (a parallelism concept) is locks and mutexes and semaphores, oh my! And these get labeled “concurrency primitives” which… technically isn’t a mislabel (because they’re all about nondeterministic, asynchronous events!) but is also misleading? Sorta? Because these are very specific events.</p>
+</blockquote>
+<p>所以一方面, 由于同步API的广泛存在, 我们经常得用并行来实现并发; 另一方面, 在使用并行的过程中, 又经常得引入并发手段. 线程并行地执行计算, 然后需要通信交互, 而通信交互又表现为并发概念下的事件.</p>
+<p>线程是并行的概念, 引入线程后就会引入锁, 互斥量和信号这些概念, 但这些概念却叫做并发原语. 从技术的角度来说是没错的, 因为它们是不确定的异步的事件, 但也因为它们是很特定的一部分事件, 所以这个叫法也产生了一些误导.</p>
+<blockquote>
+<p>This ties these two concepts together really tightly. You can’t really have parallelism without some kind of concurrency (however tamed and well-behaved) because that would imply the parallel thread functions mostly as a means of converting electricity into heat inside the CPU. You have to communicate results, somehow.</p>
+<p>But parallelism and concurrency can be separated. With good enough asynchronous APIs, you can do concurrency without a bit of parallelism. With a good parallel programming model, the concurrency aspects can be completely and perfectly abstracted away, leaving you just focused on the deterministic parallelism.</p>
+</blockquote>
+<p>上文所述的现状就把并发和并行两个概念混杂了起来, 只有并行没有并发是不可能的, 因为只有并行的话, 相当是让CPU一直不停的工作, 计算要有意义, 就需要传递计算的结果.</p>
+<p>但并发和并行是可以分开的. 如果有足够优秀的异步API, 我们就不需要利用并行来实现并发. 如果有良好的并行计算模式, 并发一层完全可以抽象出去, 用户只需要关注并行计算.</p>
+<h2 id="the-sequential-lie-our-dumb-history">The sequential lie: our dumb history</h2>
+<blockquote>
+<p>In the 70s, our computers were single-core, single-digit megahertz CPUs, connected to nothing more capable than a tape drive. The design decisions from this era are still with us today.</p>
+<p>One of the themes I mentioned for this book is how much of design is dealing with ancient unfixable design mistakes we can only work around and pile more hacks on top of. It’s not a pretty picture. It’s a bit of a depressing fact. We can always dream of a better future. But today, we learn to work around the mistakes.</p>
+<p>Every program we write is a concurrent program, but almost every API we use is a synchronous one that pretends concurrency does not exist. If you’re writing a web server, you’re fundamentally responding to events. If you’re writing a user interface, you’re fundamentally responding to events.</p>
+</blockquote>
+<p>70年代的时候, 计算机的CPU通常是单核, 个位数兆赫的, 连接的外部设备通常也只有磁带, 基于这种&quot;原始&quot;情况作出的设计决定却至今还在影响我们.</p>
+<p>我的书中涉及到的一个主题就是关于那些陈旧错误的设计的, 为了应对这些历史包袱我们不得不糊上胶水, 不得不作出妥协. 这样的情况实在是不怎么美妙, 甚至是令人沮丧的, 也许我们可以憧憬未来有一天会变好, 但现在当下只能与它们相伴.</p>
+<p>我们写的每个程序都是并发的, 于此同时我们使用几乎所有的API都是同步的(不是为并发而设计的), 不管是开发web服务, 还是开发用户界面, 你始终都在处理响应事件.</p>
+<blockquote>
+<p>Even if you’re writing a command-line program, if you want to handle ctrl+c, well that’s delivered via a SIGINT signal, out of band from your blocking read call. (And wait, what’s “blocking” without concurrency?) And you can’t actually do much from a signal handler. So maybe you just set a global variable, and replace all your read prompts with a special function that will check that global variable before actually blocking on read.</p>
+<p>And that primitive event handler works great until one of your users discovers a reliable way to have sent SIGINT after the global variable check but before the blocking read. Now they’re complaining ctrl+c doesn’t work reliably in your application.</p>
+<p>And of course, any time we interact with the filesystem, our sequential programs are lying to us. Sure, we can check to ensure a path has no symlinks before deciding it’s safe to open it, but that’s just another potential <a rel="noopener" target="_blank" href="https://en.wikipedia.org/wiki/Time_of_check_to_time_of_use">“Time of Check / Time of Use”</a> TOCTOU vulnerability. Everything is not-so-secretly concurrent.</p>
+</blockquote>
+<p>就算开发的是命令行程序, 也避免不了对事件的处理. 假设我们的程序需要进行读取操作, 现在也要能响应<code>CTRL+C</code>, 也就是<code>SIGINT</code>(停止运行)信号, 信号和读取不是串行的(信号是并发的概念). 因为在只处理器信号的部分能做的事情不多, 所以我们或许会设置一个全局变量来标记来没有收到<code>SIGINT</code>信号, 然后在读取操作前先检查这个变量, 再决定是否要继续执行读取操作, </p>
+<p>这个事件处理的方式工作听上去不错, 直到有一天用户找到了一种方式, 能够在变量检查后读取操作前发送<code>SIGINT</code>信号的方式. 这时候程序就不会按照期望地停止运行, 用户就有可能会抱怨我们的程序并不稳定.</p>
+<p>事实上我们与文件系统交互时的任何时候, 我们的程序都不是简单串行的. 比如我们可以先检查文件路径有没有对应的符号链接, 然后在决定打开操作是不是安全的, 但这只会引入了潜在的<a rel="noopener" target="_blank" href="https://en.wikipedia.org/wiki/Time_of_check_to_time_of_use">“Time of Check / Time of Use”</a> TOCTOU漏洞.</p>
+<blockquote>
+<p>On the one hand, it’s easy to look at that situation and just scream and rage about how hard concurrency is, but that’s bullcrap. Concurrency is actually quite easy. Bullshitting yourself into pretending you’re not doing concurrency, and then getting swamped in “concurrent, but trying to hide it by being sequential and synchronous” APIs, that’s the recipe for everything getting hard.</p>
+<p>If you embrace the fact that everything is concurrent, and use something like libuv, then libuv is able to use signalfd to turn UNIX signals into just another kind of event your event loop is handling. The concurrency difficulty here just goes away. TOCTOU might become a bit more obvious when there’s a giant “and then THINGS might happen” sitting between the check and use.</p>
+</blockquote>
+<p>这样的情况很容易遇到, 并且我们很可能会吐槽并发是多么困难, 其实这是不对的. 并发本身是简单的, 没有认识到自己的程序是并发的, 或者使用了一些&quot;试图使用串行和同步来掩盖并发&quot;的API, 才会使得事情变得复杂.</p>
+<p>如果接受了所以程序都是并发的这个观点, 并且使用了libuv(libuv可以把信号转换成事件, 从而可以交给事件循环处理), 那么并发就不会那么困难了. 当检查和使用之间有一个显著的可能发生的事情时, TOCTOU的问题也不会那么隐蔽了.</p>
+<blockquote>
+<p>This is an area where I’d like to say that Windows has embraced concurrency better, but I really can’t. Event handling loops are a core part of how Windows works, but they’re also buried under decades of old bad designs and work-arounds. Event loops look like they’re associated with HWND handles, so you might need a window to receive messages? But no, event loops are actually associated with threads, and each HWND has an owning thread, and a thread can have an event loop without any windows (but a thread might not have an event loop, until it’s done something to create one). And there’s still multiple event handling mechanisms, this is just the one used by UI threads. Have fun combining WaitForMultipleObjects with event loops!</p>
+</blockquote>
+<p>也许windows对并发有更好的支持, 但windows处理并发的核心-事件循环, 也背负着数十年的历史包袱, 包含着一些不让人意的设计理念...</p>
+<blockquote>
+<p>Everything is terrible! But whatever. This point here is: confusion is inevitable coming out of this history. Single threads exist in an inherently concurrent context, but synchronous APIs rob us of that concurrency. So we have to reach for multi-threading, a parallelism tool, to achieve concurrency, which creates more concurrency concerns when multiple threads interact. And many of these different kinds of events (message passing, signals, mutexes, file descriptors) have trouble interacting, exacerbating problems like deadlocks. I’d really like my thread to respond to an event, but it’s currently waiting on a mutex. Darn.</p>
+</blockquote>
+<p>似乎所以事情都很糟糕, 但无论如何, 重点是这段历史不可避免的会令人困惑. 单线程是可以实现并发的, 只是同步API的让这成为了泡影. 所以我们转向了多线程, 用并行的方式来实现并发, 这张方式也引入了线程交互的问题. 消息传递, 信号, 互斥量, 文件描述符等待这些不同的事件类型, 在交互方面也存在问题, 也同时加剧了死锁的问题. 我很希望我的线程可以响应一个事件, 但它现在正在等待一个互斥量.</p>
+<h2 id="control-and-computation">Control and computation</h2>
+<blockquote>
+<p>Another way to distinguish concurrency and parallelism is by what you’re most interested in. Concurrency is a control-flow oriented concern. Parallelism is a data-flow oriented concern.</p>
+<p>If you’re just trying to compute a result (so you’re chiefly data-flow oriented) then parallelism is what you’re after. How those results get communicated (the concurrency aspects) aren’t as important. If your problem fits a good parallel programming model, they can even be abstracted away for you. (This was the topic of that “declarative concurrency” chapter I mentioned.)</p>
+</blockquote>
+<p>还有另一个可以区分并发和并行的角度, 那就是看关注点在控制流还是数据流.</p>
+<p>如果我们是在尝试计算(显然是关注数据流)那就是并行, 并发层面的计算结果的交互通信, 则相对不那么重要. 如果我们的问题适用于并行, 并发相关的内容都可以抽象出去.</p>
+<blockquote>
+<p>If you’re trying to control what happens (so you’re chiefly control-flow oriented) then concurrency is your bag. This means you’re doing something that inherently more I/O or state-oriented.</p>
+<p>So it’s not much of a wonder that “functional programming” (whatever that means) ends up so much more associated with parallelism. The unlikely promise that functional programming would somehow be a panacea for parallel programming didn’t pan out. But they are two concepts that are more predominantly focused on data-flow over control-flow.</p>
+</blockquote>
+<p>如果我们在尝试控制发生什么, 那并发就是我们需要的, 这也意味着我们正在和很多的的I/O或者状态打交道.</p>
+<p>所以函数式编程和并行的关系如此紧密也是可以理解的的, 尽管函数式编程作为并行银弹的承诺并没有实现, 但这两者确实都更关注于数据而不是控制.</p>
+<h2 id="end-notes">End notes</h2>
+<ol>
+<li>
+<p>The canonical essay on this topic, in my mind, is Bob Harper’s “Parallelism is not Concurrency”.</p>
+</li>
+<li>
+<p>Coming up is some comparison of C# and Erlang, which best represent two different approaches to concurrency. Okay, fine, we can talk about Node and Go, too.</p>
+</li>
+<li>
+<p>I’m also planning a post deep-diving into async/await. This is a major recent innovation. It’s cool.</p>
+</li>
+<li>
+<p>I should take some time to think more carefully about the function coloring arguments. I’m not sure I’m convinced this is actually a problem. Even without a forced distinction in the language, there’s already a huge amount of “coloring” that happens just from our mental models of what a function does. I’m reminded of invented coloring conventions, like mutation functions in Lisp/Scheme/Ruby ending in a !. The real question is how much composition gets complicated.</p>
+</li>
+<li>
+<p>This book isn’t going to be a parallel programming book, beyond maybe a few really basic things. Parallel programming is a specialized topic with considerable depth. Concurrency, however, I don’t think is all that specialized, and deserves more attention.</p>
+</li>
+<li>
+<p>(Added 2018-11-6) An alternative definition of “parallelism vs concurrency” I’ve seen used is distinguishing “hardware vs programming model.” I disagree with this definition: there are a myriad of parallel programming models. These should not be dismissed as mere hardware concerns. And there are several programming models for concurrency, too. Parallelism might be inspired by hardware, but it’s distinct.</p>
+</li>
+</ol>
+</br>
+<p><em>-&gt; 如果文章有不足之处或者有改进的建议，可以在<a rel="noopener" target="_blank" href="https://github.com/dlzht/dlzht.github.io/discussions/3">这边</a>告诉我，也可以发送给我的<a href="mailto:dlzht@protonmail.com">邮箱</a></em></p>
+
+        </div>
+
+        
+        <div class="pagination">
+            <!-- <div class="pagination__title"> -->
+                <!-- <span class="pagination__title-h">++</span> -->
+                <!-- <hr /> -->
+            <!-- </div> -->
+            <div class="pagination__buttons">
+                    <span class="button previous">
+                        <a href="https://dlzht.github.io/001-shu-zi-zheng-shu-he-shu-zi-qian-ming-na-xie-shi/">
+                            <span class="button__icon">←</span>&nbsp;
+                            <span class="button__text">数字证书和数字签名那些事</span>
+                        </a>
+                    </span>
+                
+                
+                    <span class="button next">
+                        <a href="https://dlzht.github.io/003-yi-wen-bing-fa-mo-xing/">
+                            <span class="button__text">译文: 并发模型</span>&nbsp;
+                            <span class="button__icon">→</span>
+                        </a>
+                    </span>
+                </div>
+        </div>
+    
+    </div>
+
+    </div>
+
+    
+    <footer class="footer">
+        <div class="footer__inner">
+                <div class="copyright copyright--user">Email:&nbsp;<a href=mailto:dlzht@protonmail.com>dlzht@protonmail.com</a></div>
+            </div>
+    </footer>
+    
+
+</div>
+</body>
+
+</html>

@@ -1,0 +1,38 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<svg id="svg2" xmlns:inkscape="http://www.inkscape.org/namespaces/inkscape" xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#" xmlns="http://www.w3.org/2000/svg" sodipodi:docname="synchronous-threaded-waste.svg" height="463" width="700" version="1.1" xmlns:cc="http://creativecommons.org/ns#" xmlns:dc="http://purl.org/dc/elements/1.1/" inkscape:version="0.91 r13725" viewBox="0 0 700.00001 463.00001" xmlns:sodipodi="http://sodipodi.sourceforge.net/DTD/sodipodi-0.dtd">
+ <defs id="defs4">
+  <marker id="marker4644" refY="0" refX="0" overflow="visible" orient="auto" inkscape:stockid="Arrow1Lend" inkscape:isstock="true">
+   <path id="path4646" d="m0 0 5-5-17.5 5 17.5 5-5-5z" fill-rule="evenodd" inkscape:connector-curvature="0" transform="matrix(-.8 0 0 -.8 -10 0)" stroke="#000" stroke-width="1pt"/>
+  </marker>
+  <marker id="marker4590" refY="0" refX="0" overflow="visible" inkscape:stockid="Arrow1Lend" inkscape:isstock="true" orient="auto" inkscape:collect="always">
+   <path id="path4592" d="m0 0 5-5-17.5 5 17.5 5-5-5z" fill-rule="evenodd" inkscape:connector-curvature="0" transform="matrix(-.8 0 0 -.8 -10 0)" stroke="#000" stroke-width="1pt"/>
+  </marker>
+  <marker id="Arrow1Lstart" refY="0" refX="0" overflow="visible" orient="auto" inkscape:stockid="Arrow1Lstart" inkscape:isstock="true">
+   <path id="path4166" d="m0 0 5-5-17.5 5 17.5 5-5-5z" fill-rule="evenodd" inkscape:connector-curvature="0" transform="matrix(.8 0 0 .8 10 0)" stroke="#000" stroke-width="1pt"/>
+  </marker>
+  <marker id="Arrow1Lend" refY="0" refX="0" overflow="visible" orient="auto" inkscape:stockid="Arrow1Lend" inkscape:isstock="true" inkscape:collect="always">
+   <path id="path4169" d="m0 0 5-5-17.5 5 17.5 5-5-5z" fill-rule="evenodd" inkscape:connector-curvature="0" transform="matrix(-.8 0 0 -.8 -10 0)" stroke="#000" stroke-width="1pt"/>
+  </marker>
+ </defs>
+ <sodipodi:namedview id="base" bordercolor="#666666" inkscape:pageshadow="2" inkscape:window-y="24" pagecolor="#ffffff" inkscape:window-height="999" inkscape:window-maximized="1" inkscape:zoom="0.98994949" inkscape:window-x="65" showgrid="false" borderopacity="1.0" inkscape:current-layer="layer1" inkscape:cx="132.62862" inkscape:cy="158.80437" showguides="false" units="px" inkscape:window-width="1855" inkscape:pageopacity="0.0" inkscape:document-units="px"/>
+ <g id="layer1" inkscape:label="Layer 1" inkscape:groupmode="layer" transform="translate(0 -589.36)">
+  <path id="path4136" marker-end="url(#Arrow1Lend)" d="m151 614.36v400h400" marker-start="url(#Arrow1Lstart)" sodipodi:nodetypes="ccc" inkscape:connector-curvature="0" stroke="#000" stroke-width="2" fill="none"/>
+  <path id="path4140" d="m163 612.36s-9.3335 200.67 90 300c99.333 99.333 300 90 300 90" sodipodi:nodetypes="czc" inkscape:connector-curvature="0" stroke="#000" stroke-width="1px" fill="none"/>
+  <g font-size="20px" font-family="sans-serif" fill="#000000">
+   <text id="text4142" style="word-spacing:0px;letter-spacing:0px" line-height="125%" xml:space="preserve" y="623.07648" x="199.85713" sodipodi:linespacing="125%"><tspan id="tspan4144" sodipodi:role="line" x="199.85713" y="623.07648">Too few threads</tspan><tspan id="tspan4152" sodipodi:role="line" x="199.85713" y="648.07648">to saturate I/O</tspan></text>
+   <text id="text4146" style="word-spacing:0px;letter-spacing:0px" line-height="125%" xml:space="preserve" y="930.93353" x="467.71426" sodipodi:linespacing="125%"><tspan id="tspan4148" sodipodi:role="line" x="467.71426" y="930.93353">Too many threads</tspan><tspan id="tspan4150" sodipodi:role="line" x="467.71426" y="955.93353">contending for CPU</tspan></text>
+   <text id="text4154" style="word-spacing:0px;letter-spacing:0px" line-height="125%" xml:space="preserve" transform="rotate(-90)" y="142.85059" x="-816.72919" sodipodi:linespacing="125%"><tspan id="tspan4156" sodipodi:role="line" x="-816.72919" y="142.85059">Idleness waste</tspan></text>
+   <text id="text4158" style="word-spacing:0px;letter-spacing:0px" line-height="125%" xml:space="preserve" y="1036.7908" x="271.14285" sodipodi:linespacing="125%"><tspan id="tspan4160" sodipodi:role="line" x="271.14285" y="1036.7908">Over-subscription waste</tspan></text>
+  </g>
+  <g stroke="#000" fill="none">
+   <path id="path4582" marker-end="url(#marker4590)" d="m207.71 677.36-26.42-72.14" sodipodi:nodetypes="cc" inkscape:connector-curvature="0" stroke-width="1px"/>
+   <path id="path4636" marker-end="url(#marker4644)" d="m455 960.51 92.143 17.857" inkscape:connector-curvature="0" stroke-width="1px"/>
+   <circle id="path5070" stroke-linejoin="round" style="color-rendering:auto;color:#000000;isolation:auto;mix-blend-mode:normal;shape-rendering:auto;solid-color:#000000;image-rendering:auto" cx="251.79" cy="911.06" r="3.084" stroke-width="1.832"/>
+   <circle id="circle5072" stroke-linejoin="round" style="color-rendering:auto;color:#000000;isolation:auto;mix-blend-mode:normal;shape-rendering:auto;solid-color:#000000;image-rendering:auto" stroke-width="1.832" cy="1014.1" cx="151.11" r="3.084"/>
+  </g>
+  <text id="text5074" style="word-spacing:0px;letter-spacing:0px" line-height="125%" xml:space="preserve" font-size="15px" y="876.29071" x="252.35715" font-family="sans-serif" sodipodi:linespacing="125%" fill="#000000"><tspan id="tspan5076" sodipodi:role="line" x="252.35715" y="876.29071">&quot;Performance tuning&quot;</tspan></text>
+  <path id="path5078" d="m254.14 908.79 31.61-28.57" inkscape:connector-curvature="0" stroke="#000" stroke-width="1px" fill="none"/>
+  <text id="text5080" style="word-spacing:0px;letter-spacing:0px" line-height="125%" xml:space="preserve" font-size="15px" y="1037.7125" x="14.626905" font-family="sans-serif" sodipodi:linespacing="125%" fill="#000000"><tspan id="tspan5082" sodipodi:role="line" x="14.626905" y="1037.7125">Ideal performance</tspan></text>
+  <path id="path5084" d="m131.8 1027 16.415-10.733" inkscape:connector-curvature="0" stroke="#000" stroke-width="1px" fill="none"/>
+ </g>
+</svg>
