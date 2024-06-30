@@ -1,0 +1,288 @@
++++
+title = "走马观花http库1"
+date = 2024-06-28
+[taxonomies]
+tags = ["Rust", "hyper",  "http"]
++++
+
+[http库](https://github.com/hyperium/http)是用Rust编写的一个http基础库, 实现了Request, Response, Method等数据结构. [hyper](https://github.com/hyperium/hyper)是基于http库的, 而目前Rust的绝大多数web框架都基于hyper, 所以http库几乎是http协议在Rust中的"标准实现".
+
+<!-- more -->
+
+*http库的定位是通用的http基础库, 所以主要是实现了协议中需要用到的各种数据结构. 如果你需要的是应用层的开发, 服务端可以考虑[axum](https://github.com/tokio-rs/axum), [warp](https://github.com/seanmonstar/warp)等, 客户端可以考虑[reqwest](https://github.com/seanmonstar/reqwest), [ureq](https://github.com/algesten/ureq)等.*
+
+## 请求Request
+
+```text
+GET / HTTP/1.1     //方法是GET, 路径是/, 版本是HTTP/1.1
+Accept: */*        //请求头Accept, 值是*/*
+Content-Length: 6  //请求头Content-Length, 值是6
+                   //空白行(/r/n)
+form=1             //请求体
+```
+
+如上是一个http请求, 第一行是请求行, 包含方法, 路径和协议版本三部分; 第二行开始到空白行之间的是请求头, 每一行都是由冒号分割的键值对; 空白行之后的内容是请求体.
+
+```rust
+pub struct Request<T> {
+  head: Parts,
+  body: T,
+}
+
+pub struct Parts {
+  pub method: Method,                    //请求方法
+  pub uri: Uri,                          //请求路径
+  pub version: Version,                  //协议版本
+  pub headers: HeaderMap<HeaderValue>,   //请求头
+  pub extensions: Extensions,            //扩展项
+}
+```
+Request类型包含了上面提到的字段, 这里`body`是泛型, 即可以是`Vec<u8>`这样的"固定"数据, 也可以是`Stream`这样的流式数据. `Extensions`是额外提供的扩展字段, 底层也是一个Map结构, 有些运行过程需要的数据会存在里面, 比如请求头的顺序.  
+
+```rust
+let builder = Request::builder();
+let request = builder.method(Method::GET).uri( ... ).body( ... );
+```
+
+`Request::Builder`是创建Request的构造器, 可以链式地设置请求的各个属性, `body()`方法会返回构造结果`Result<Request>`, 
+
+## 响应Response
+
+```text
+HTTP/1.1 200 OK    //版本是HTTP/1.1, 状态码是200, 描述是OK
+Content-Length: 4  //响应头Content-Length, 值是4
+                   //空白行(/r/n)
+body               //响应体
+```
+
+响应的结构和请求类似, 区别在于第一行, 构成响应行的部分是版本, 状态码和状态描述. 响应头和响应体则和上面请求一样. 
+
+```rust
+pub struct Response<T> {
+  head: Parts,
+  body: T,
+}
+
+pub struct Parts {
+  pub status: StatusCode,               //响应状态码
+  pub version: Version,                 //协议版本
+  pub headers: HeaderMap<HeaderValue>,  //响应头
+  pub extensions: Extensions,           //扩展项
+}
+
+let builder = Response::builder();
+let response = builder.status(StatusCode::OK).body( ... );
+```
+
+Response类型和Request大差不差, 同样也提供了链式的构造器`Response::Builder`.
+
+## 请求方法Method
+
+```rust
+pub struct Method(Inner);
+
+enum Inner {
+  Options, Get, Patch,
+  ...
+}
+```
+
+[RFC9110](https://datatracker.ietf.org/doc/html/rfc9110#name-methods)中定义了GET, HEAD, POST, PUT, DELETE, CONNECT, OPTIONS和TRACE这些标准方法, 在代码实现中把PATCH也看作是标准方法.
+
+
+```rust
+impl Method {
+    pub const GET: Method = Method(Get);    
+    pub const POST: Method = Method(Post);
+    ...
+}
+```
+
+标准方法在模块内被声明为const常量, 可以直接使用`Method::GET`, `Method::POST`.
+
+```rust
+enum Inner {
+  ...
+  //两种自定义方法类型
+  ExtensionInline(InlineExtension),
+  ExtensionAllocated(AllocatedExtension),
+}
+```
+
+标准方法之外的自定义方法, 根据方法名字的长度, 使用了`ExtensionInline`和`ExtensionAllocated`这两个类型来处理. 
+
+当长度<15(`InlineExtension::MAX`) 时, 用`ExtensionInline`类型表示, 存储结构是`([u8; 15], u8)`, 第一个字段是长度固定的字节数组, 第二个字段是实际使用的字节数.
+
+当长度>=15时, 用`ExtensionAllocated`类型表示, 存储结构是`Box<[u8]>)`. 这时候数据被`Box`起来放到了堆上, 所以比起上面的固定数组, 会多一层堆访问.
+
+```rust
+// 方法名称长, 直接存储
+pub struct InlineExtension([u8; InlineExtension::MAX], u8);
+// 方法名称长, 堆上存储
+pub struct AllocatedExtension(Box<[u8]>);
+```
+
+根据名称长度用两种结构存储, 一方面在名称较短时, 可以减少堆访问, 考虑的是时间效率; 另一方面, 在名称较长时, 在堆上动态分配内存, 考虑的是空间效率. 这种对空间和时间之间的权衡, 和Redis的sds有的相似.
+
+```rust
+pub fn from_bytes(src: &[u8]) -> Result<Method, InvalidMethod> {
+  //先匹配长度
+  match src.len() {
+    0 => Err(InvalidMethod::new()),
+    3 => match src {
+      //再匹配字节
+      b"GET" => Ok(Method(Get)),
+      b"PUT" => Ok(Method(Put)),
+      _ => Method::extension_inline(src),
+    },
+    ... 
+    //自定义方法
+    _ => {
+      if src.len() < InlineExtension::MAX {
+        Method::extension_inline(src)
+      } else {
+        let allocated = AllocatedExtension::new(src)?;
+        Ok(Method(ExtensionAllocated(allocated)))
+      }
+    }
+  }
+}      
+```
+
+`from_bytes`函数可以从字节中解析Method实例, 比较入参的长度和字节, 如果是标准方法就直接返回; 如果是自定义方法, 就根据字节  长度解析成上面提到的两种的类型. 
+
+
+```rust
+//查找表, 非法字符的位置都是0
+const METHOD_CHARS: [u8; 256] = [b'\0', b'\0', b'\0', b'\0' ... ];
+
+fn write_checked(src: &[u8], dst: &mut [u8]) -> Result<(), InvalidMethod> {
+  for (i, &b) in src.iter().enumerate() {
+    let b = METHOD_CHARS[b as usize];
+    if b == 0 {
+      return Err(InvalidMethod::new());
+    }
+    dst[i] = b;
+  }
+  Ok(())
+}
+```
+
+根据RFC中的描述, 请求方法的字节都要是可见的US-ASCII字符, 解析自定义方法时, `write_checked`方法会逐个字节检查是否合法, 这里用了[`METHOD_CHARS`](https://github.com/hyperium/http/blob/v1.1.0/src/method.rs#L375)这样一张查找表. 
+
+## 协议版本Version
+
+```rust
+pub struct Version(Http);
+
+enum Http {
+  Http09, Http10, 
+  Http11, H2, H3,
+  __NonExhaustive,
+}
+```
+
+版本协议目前定义了5种, 即HTTP/0.9, HTTP/1.0, HTTP/1.1, HTTP/2.0和HTTP/3.0, 现实中最常见到的版本是HTTP/1.1和HTTP/2.
+
+```rust
+impl Version {
+  pub const HTTP_11: Version = Version(Http::Http11);
+  pub const HTTP_2: Version = Version(Http::H2);
+  ...
+}
+```
+同样, 也用const变量声明了这些协议版本, `Version::HTTP_11`可以直接使用.    
+
+## 状态码StatusCode
+
+```rust
+pub struct StatusCode(NonZeroU16);
+```
+
+状态码实际就是个非零的正整数, 通常在[100, 600)这个区间内, 这边`StatusCode`类型中, 直接使用了`NonZeroU16`这样一个内部字段. 
+
+```rust
+impl StatusCode {
+  pub const CONTINUE: StatusCode = StatusCode(unsafe { NonZeroU16::new_unchecked(100) });
+  pub const SWITCHING_PROTOCOLS: StatusCode = StatusCode(unsafe { NonZeroU16::new_unchecked(101) });
+}
+
+// 返回对应的状态描述
+fn canonical_reason(num: u16) -> Option<&'static str> {
+  match num {
+    100 => Some("Continue"),
+    101 => Some("Switching Protocols"),
+    ...
+  }
+}
+```     
+
+[RFC9110](https://datatracker.ietf.org/doc/html/rfc9110#status.codes)中也定义了一批标准状态码, 比如200表示请求成功, 404表示资源不存在. 同样也是用const变量声明了这些标准状态码, `canonical_reason`则返回标准状态码的描述信息.
+
+```rust
+  pub fn is_informational(&self) -> bool { 
+    200 > self.0.get() && self.0.get() >= 100
+  }  
+  pub fn is_success(&self) -> bool {
+    300 > self.0.get() && self.0.get() >= 200
+  }     
+  pub fn is_redirection(&self) -> bool {
+      400 > self.0.get() && self.0.get() >= 300
+  }
+  pub fn is_client_error(&self) -> bool {
+      500 > self.0.get() && self.0.get() >= 400
+  }  
+  pub fn is_server_error(&self) -> bool {
+      600 > self.0.get() && self.0.get() >= 500
+  }    
+```
+[100, 200)的状态码是信息描述型的, [200, 300)表示请求成功, [300, 400)是重定向, [400, 500)是客户端错误, [500, 600)是服务端错误.
+
+## 请求路径Uri
+
+```text
+          userinfo          host    port
+       ______|________   ____|____   |
+      /               \ /         \ / \
+abc://username:password@example.com:123/path/data?key=value&key2=value2#fragid1
+\_/   \_______________________________/\________/ \___________________/ \_____/
+ |                     |                    |               |              |
+scheme             authority              path            query        fragment
+```
+
+用注释文档中的例子, "完整"的URI可以分成五个部分, 从Uri开头到`://`之间是scheme, `://`到第一个`/?#`字符之间是authority, 第一个`/`到第一个`?#`之间的是path, `?`到`#`之间的是query, `#`之后的是fragment.  
+
+```rust
+pub struct Uri {
+  scheme: Scheme,
+  authority: Authority,
+  path_and_query: PathAndQuery,
+}
+
+fn parse_full(mut s: Bytes) -> Result<Uri, InvalidUri> {
+  // 解析scheme组件
+  let scheme = match Scheme2::parse( ... );
+  // 解析authority组件
+  let authority_end = Authority::parse( ... )?;
+  // 解析path和query
+  path_and_query: PathAndQuery::from_shared(s)?
+  ... 
+}
+```
+
+解析Uri的主要逻辑在`parse_full`函数中, 除了上面描述的特殊字符分割规则, 还有校验字符合法, 处理`%`(URL编码), `[]`(  IPV6), 组件缺省等逻辑. 
+
+```rust
+let authority = Authority::from_static("127.0.0.1:A");
+let port = authority.port(); //port的值是None
+```
+
+需要注意的是, 目前的实现中并没有做很强的校验, 比如上面的代码是可以编译运行的, 不过`port`的值是`None`. 
+
+## 协议头HeadMap
+
+协议头的实现相对复杂, 放在后面单独一篇. 笼统地讲, 保存协议头的HeadMap结构和HashMap类似, 不过键是不区分大小写的, 而且同一个键可以有多个值.   
+
+</br>
+
+*-> 如果文章有不足之处或者有改进的建议，可以在[这边](https://github.com/dlzht/dlzht.github.io/discussions/11)告诉我，也可以发送给我的[邮箱](mailto:dlzht@protonmail.com)*
