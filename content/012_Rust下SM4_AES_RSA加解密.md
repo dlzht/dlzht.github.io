@@ -1,5 +1,5 @@
 +++
-title = "Rust下实现SM4/AES/RSA加解密"
+title = "Rust下SM4/AES/RSA加解密"
 date = 2024-07-20
 [taxonomies]
 tags = ["Rust", "RSA",  "SM4"]
