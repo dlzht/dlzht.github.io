@@ -1,0 +1,56 @@
++++
+title = "胡说八道h2库1"
+date = 2024-07-15
+[taxonomies]
+tags = ["Rust", "hyper",  "http"]
++++
+
+HeaderMap是http库里用来处理协议头的结构, 本质上是一个哈希表, 解决哈希冲突的策略是开放地址, 地址探测采用的是[robin hood](https://en.wikipedia.org/wiki/Hash_table#Robin_Hood_hashing). 因为是专用于http头的场景, 还具有键不区分字母大小写, 一个键可以对于多个值, 可以在快速哈希和安全哈希间切换等特点.
+
+<!-- more -->
+
+## 数据结构
+
+```rust
+pub fn poll(&mut self, cx: &mut Context) -> Poll<Result<(), Error>> {
+  loop {
+    // 根据连接当前的状态处理
+    match connection.state {
+      // 连接是打开的, 就调用poll2方法
+      Open => {
+        let result = ready!(poll2(cx)),
+        // 处理 poll2 返回的结果
+        handle_poll2_result(result);
+      },
+      // 连接即将断开, 就做一些收尾工作
+      Closing => { shutdown(); state = Closed; },
+      // 连接已经断开, 返回已经完成
+      Closed => { return Ready; }
+    }
+  }
+}
+```
+
+```rust
+fn poll2(&mut self, cx: &mut Context) -> Poll<Result<(), Error>> {
+  loop {
+    // GOAWAY用来断开连接, 这边先处理
+    if let Some(reason) = ready!(poll_go_away(cx)?) { ... }
+    // 准备工作, 处理PING, PONG, SETTINGS等帧
+    ready!(poll_ready(cx));
+    // 读取连接数据包, 解析成帧
+    match recv_frame(ready!(codec.poll_next(cx)?)) {
+      // 收到SETTINGS帧, 调整配置
+      ReceivedFrame::Settings => { ... },
+      // 收到的是其他帧, 继续poll 
+      ReceivedFrame::Continue => {},
+      // 底层连接断开了, 结束poll
+      ReceivedFrame::Done => { return Ready(OK()); }
+    }
+  }
+}
+```
+
+</br>
+
+*-> 如果文章有不足之处或者有改进的建议，可以在[这边](https://github.com/dlzht/dlzht.github.io/discussions/11)告诉我，也可以发送给我的[邮箱](mailto:dlzht@protonmail.com)*
