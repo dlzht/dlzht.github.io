@@ -57,7 +57,8 @@ OCSP装订解决了OCSP存在的一些的问题, 简单来说, 就是服务器�
 这样的好处是, 一方面, 省去了客户端查询OCSP的时间, 用户可以更快地得到响应; 另一方面, 客户端不需要和OCSP服务交互, 也就没有了上面的隐私安全问题, 还减少了网络问题带来的不可用(比如某个CA突然被屏蔽了).
 
 nginx里开启OCSP Stapling:
-```text
+
+```txt
 server {
   ssl_stapling on;
   ssl_stapling_verify on;
