@@ -170,6 +170,32 @@ pub struct DateTime {
 
 `DateTime`就是日期加上时间, 年月日+时分秒, 所以`DateTime`的取值范围也遵循`Date`+`Time`的范围.
 
+### 2.5 时间跨度Span
+
+```rust
+pub struct Span {
+    sign: Sign,
+    years: t::SpanYears,
+    months: t::SpanMonths,
+    days: t::SpanDays,
+    hours: t::SpanHours,
+    minutes: t::SpanMinutes,
+    seconds: t::SpanSeconds,
+    ...
+}
+
+let a = Span::new()
+  .days(1)
+  .hours(12)
+  .minutes(65)
+  .seconds(7200);
+// a = P1dT12h65m7200s 1天12小时65分7200秒
+```
+
+`Span`表示两个时间之间的跨度, 不同的时间单位, 都单独记录了值(不进位换算). `until`, `since`方法的返回值, 还有`*_add`, `*_sub`方法的入参等, 日期之间的数学运算用的都是`Span`类型.
+
+标准库里也有`Duration`表示两个时刻之间的跨度, `Span`与之不同的地方在于, 一`Span`有正负, 时间跨度有方向, 可以表示"之后, 也可以表示"之前"; 二保留了不同时间单位的值, 没有全部换算到秒(纳秒), 所以可以处理"不规则"的时间, 比如只有23小时的天.
+
 ## 3. 时间类型之间的转换
 
 得益于多种时区格式被统一了, 所以时间类型之间的转换也很轻松, 只需要记住, 时区是时间戳和日常时间的"转接头"就行了.
