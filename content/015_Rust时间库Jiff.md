@@ -63,7 +63,7 @@ Jiff对这两种方式都提供了支持, 而且如果你不想因为这点琐�
 
 ### 1.3 一致的API风格
 
-{{ image(src="/image/015_02.png", alt="image 404", position="center") }}
+{{ image(src="/image/015_01.png", alt="image 404", position="center") }}
 
 上图是我罗列的时间类型和他们的部分API, 可以看到, 这些类型的API在很大程度上保持了一致(不包含参数), 我们在熟悉了某个类型后, 很快可以找到"感觉", 迅速掌握其他的类型.
 
@@ -256,7 +256,7 @@ Zoned.time_zone() -> &TimeZone
 
 ##  4. 辅助操作类型
 
-{{ image(src="/image/015_01.png", alt="image 404", position="center") }}
+{{ image(src="/image/015_02.png", alt="image 404", position="center") }}
 
 ### 4.1 时间跨度Difference
 
@@ -320,6 +320,20 @@ let mut b = a.series(Span::new().days(1));  // 跨度为1天
 ## 5. 小结
 
 这篇文章简述了Jiff时间库的一些优点, 以及库里主要的数据结构和操作方法. 因为篇幅的原因, 具体的使用示例, 还有其他一些值得探讨的问题, 会放到后续的文章中, 感谢!
+
+
+## 6. 更新日志
+
+这边只罗列了相对来说比较重要的, 比如和Rust生态集成, 严重BUG修复, 新增平台支持等, 完整的更新日志在
+
+### 0.1.1 (2024-07-26)
+
++ 支持标准库的`Duration`和`Span`互相转换(try_from).
+
+### 0.1.3 (2024-07-30)
+
++ 支持`wasm{32, 64}-unknown-unknown`, 需要开启`js`特性
+
 
 </br>
 
