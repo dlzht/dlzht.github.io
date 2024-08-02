@@ -335,7 +335,7 @@ fn Runtime::block_on() {
 
 `tokio`的代码也是之前看的了, 还向[ihciah](https://github.com/ihciah)同学请教过问题(字节也有运行时的实现[monoio](https://github.com/bytedance/monoio)). 如果有什么地方我理解有误, 或者有哪些可以改进的, 也请大家不吝指出, 感谢!
 
-最近接触"时间"的内容比较多, 想起[pingora](https://github.com/cloudflare/pingora)里的超时有`FastTimeout`和`TokioTimeout`两套, 也是蛮有意思的, 就想着写一下. 一不留神, 发现光是`tokio`的时间轮可写的也不少, 索性放到后面再写一篇了.
+最近接触"时间"的内容比较多, 想起[pingora](https://github.com/cloudflare/pingora)里的超时有`FastTimeout`和`TokioTimeout`两套, 也是蛮有意思的, 就想着写一下. 写着写着, 发现字好像有的多了, 索性放到后面再写一篇了.
 
 
 
