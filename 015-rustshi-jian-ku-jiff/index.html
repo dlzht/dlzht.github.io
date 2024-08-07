@@ -1,0 +1,378 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <script async src="https://www.googletagmanager.com/gtag/js?id=G-Q8CTC2C6DM"></script>
+    <script>
+        window.dataLayer = window.dataLayer || [];
+        function gtag(){dataLayer.push(arguments);}
+        gtag('js', new Date());
+        gtag('config', 'G-Q8CTC2C6DM');
+    </script>
+
+    <title></title>
+    
+    <meta http-equiv="content-type" content="text/html; charset=utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1">
+    <meta name="robots" content="noodp"/>
+
+    <link rel="stylesheet" href="https://dlzht.github.io/style.css">
+    <link rel="stylesheet" href="https://dlzht.github.io/color/blue-light.css">
+
+        <link rel="stylesheet" href="https://dlzht.github.io/color/background_light.css">
+    
+    <link rel="stylesheet" href="https://dlzht.github.io/font-hack-subset.css">
+
+    <meta name="description" content="">
+
+    <meta property="og:description" content="">
+    <meta property="og:title" content="">
+    <meta property="og:type" content="article">
+    <meta property="og:url" content="https://dlzht.github.io/015-rustshi-jian-ku-jiff/">
+
+    <meta name="twitter:card" content="summary_large_image">
+    <meta name="twitter:description" content="">
+    <meta name="twitter:title" content="">
+    <meta property="twitter:domain" content="dlzht.github.io">
+    <meta property="twitter:url" content="https://dlzht.github.io/015-rustshi-jian-ku-jiff/">
+
+    </head>
+
+<body class="">
+<div class="container">
+    
+    <header class="header">
+        <div class="header__inner">
+            <div class="header__logo">
+                    
+                <a href="https://dlzht.github.io" style="text-decoration: none;">
+                    <div class="logo">
+                      
+                            QianQi dlzht@protonmail.com
+                        
+                    </div>
+                </a>
+            </div>
+        </div>
+
+        
+        
+                <nav class="menu">
+            <ul class="menu__inner">
+                <li class="active"><a href="https://dlzht.github.io">主页</a></li>
+            
+                <li><a href="https://dlzht.github.io/tags">标签</a></li>
+            
+                <li><a href="https://dlzht.github.io/about">关于</a></li>
+            
+                <li><a href="https://dlzht.github.io/archive">归档</a></li>
+            </ul>
+        </nav>
+    
+    
+        
+    </header>
+    
+
+    <div class="content">
+        
+    <div class="post">
+        
+    <h1 class="post-title"><a href="https://dlzht.github.io/015-rustshi-jian-ku-jiff/">Rust优雅的时间库Jiff</a></h1>
+    <div class="post-meta-inline">
+        
+    <span class="post-date">
+            2024-07-30
+        </span>
+
+    </div>
+
+    
+        <span class="post-tags-inline">
+                :: tags:&nbsp;
+                <a class="post-tag" href="https://dlzht.github.io/tags/jiff/">#Jiff</a>&nbsp;
+                <a class="post-tag" href="https://dlzht.github.io/tags/rust/">#Rust</a>&nbsp;
+                <a class="post-tag" href="https://dlzht.github.io/tags/lib/">#lib</a></span>
+    
+
+        <div class="post-content">
+            <p>BurntSushi发现在目前的Rust时间库中, 存在一些&quot;不足&quot;, 因而发布了新的时间库<a rel="noopener" target="_blank" href="https://github.com/BurntSushi/jiff">Jiff</a>. 在06-24这一天, Jiff发布了0.1版本, 目前(07-29)已经是0.1.2版本, 最近也还在持续迭代中, 期望尽快达到1.0稳定状态. 在这一篇里我会介绍Jiff的优点是什么, 有哪些重要的数据结构, 常用的操作有哪些.</p>
+<span id="continue-reading"></span><h2 id="1-jiffde-you-dian">1 Jiff的优点</h2>
+<h3 id="1-1-tong-yi-de-shi-qu-lei-xing">1.1 统一的时区类型</h3>
+<pre data-lang="txt" style="background-color:#272822;color:#f8f8f2;" class="language-txt "><code class="language-txt" data-lang="txt"><span>// 固定偏移格式
+</span><span>1970-01-01T02:30:00+01:30  3600
+</span><span>\________/ \______/ \___/
+</span><span>    |         |       |
+</span><span>   日期       时间   偏移(时区)
+</span><span>
+</span><span>// POSIX格式
+</span><span>EST05:00EDT,M3.2.0/2:00:00,M11.1.0/2:00:00
+</span><span>\_/\___/\_/ \____________/ \_____________/
+</span><span> |   |   |        |               |
+</span><span>时区 偏移 时区  夏令时开启时间   夏令时结束时间
+</span><span>
+</span><span>
+</span><span>// TZIF格式
+</span><span>2024-03-10T01:59:59-05:00[America/New_York]
+</span><span>\________/ \______/ \___/ \______________/
+</span><span>    |         |       |          |
+</span><span>   日期       时间    偏移      时区标记符
+</span></code></pre>
+<p>时区其实就是描述了时间戳和本地时间之间该怎么转换, 在前面的文章里列出过, 表达时区的方式至少有三种, 固定偏移, POSIX, TZIF. </p>
+<p>一方面, 这三种格式Jiff都提供了支持, 用<code>parse()</code>方法把字符串解析成时间; 另一方面, 在实现上, 用枚举类型屏蔽了差异, 使用者不需要了解内部的细节.</p>
+<h3 id="1-2-feng-zhuang-de-shi-qu-shu-ju-ku">1.2 封装的时区数据库</h3>
+<pre data-lang="rust" style="background-color:#272822;color:#f8f8f2;" class="language-rust "><code class="language-rust" data-lang="rust"><span style="color:#f92672;">pub </span><span style="font-style:italic;color:#66d9ef;">struct </span><span>TimeZoneDatabase {
+</span><span>    inner: </span><span style="font-style:italic;color:#66d9ef;">Option</span><span>&lt;Arc&lt;TimeZoneDatabaseInner&gt;&gt;,
+</span><span>}
+</span><span>
+</span><span style="font-style:italic;color:#66d9ef;">struct </span><span>TimeZoneDatabaseInner {
+</span><span>    zoneinfo: ZoneInfo,         </span><span style="color:#75715e;">// 系统自带的
+</span><span>    bundled: BundledZoneInfo,   </span><span style="color:#75715e;">// 预先内置的
+</span><span>}
+</span></code></pre>
+<p>时区数据库, Unix类系统通常会自带, 在<code>/usr/share/zoneinf</code>目录下, 而windows系统则不一定. 平台的差异性, 使得开发面临一个抉择, 是使用预置默认的呢, 还是使用系统自带的呢.</p>
+<p>这两种方式有各自的优缺点, 使用系统自带的, 时区数据库在系统升级时就可以更新, 会更&quot;新&quot;一点. 而且当时区数据变更时, 不需要重新构建发布新的程序.</p>
+<p>如果使用预置默认的, 则可以忽略系统的具体情况, 在所有平台上保持一致; 而且时区可以被预先定义成常量, 在下游代码中可以直接使用, 代码执行也会更有效率.</p>
+<p>Jiff对这两种方式都提供了支持, 而且如果你不想因为这点琐事费心, 可以直接使用默认的行为, 即Unix类用系统自带的, windows系统用预置的.</p>
+<p>如果你清楚些概念, 知道怎么做对程序更有利, 那也可以通过<a rel="noopener" target="_blank" href="https://docs.rs/crate/jiff/latest/features">features</a>指定策略. 比如在Unix类系统上, 也强制使用预置的时间数据库, 从而使程序在不同平台上更加一致.</p>
+<h3 id="1-3-yi-zhi-de-apifeng-ge">1.3 一致的API风格</h3>
+
+  
+  
+    
+    
+  
+  <img src="https://dlzht.github.io/image/015_01.png" alt="image 404" class="center" decoding="async" loading="lazy"/>
+
+<p>上图是我罗列的时间类型和他们的部分API, 可以看到, 这些类型的API在很大程度上保持了一致(不包含参数), 我们在熟悉了某个类型后, 很快可以找到&quot;感觉&quot;, 迅速掌握其他的类型.</p>
+<p>不仅API风格的尽量保持了一致, 方法的名称也尽量保持&quot;见文知意&quot;. 比如<code>Date.tomorrow()</code>, 返回明天的日期; <code>Zoned.start_of_day()</code>, 返回当天的开始时间.</p>
+<p>当然, 也提供了一些&quot;啰嗦&quot;的API, 名字稍微复杂点, 但方便使用. 比如<code>Date.days_in_year()</code>, 返回当月有多少天; <code>DateTime.first_of_month()</code>, 返回这当月的第1天对应的日期.</p>
+<p>清晰有规律的API, 对库的使用者来说, 可以减轻心智负担, 更专注于自己的代码逻辑. 当然, 心智的负担其实是从使用者那, 转移到了开发者这, 这挺有Rust范的, 也是我认为Jiff优雅的一个原因. </p>
+<h3 id="1-4-xiang-jin-de-zhu-shi-he-shi-li">1.4 详尽的注释和示例</h3>
+<blockquote>
+<p>I am not too far away from having more lines of docs in Jiff than I do lines of code. Kudos to the Temporal project for paving a path with excellent docs of their own.</p>
+</blockquote>
+<p>几乎每个方法和类型上都附有注释说明, 阅读源代码的时候可以更容易理解作者的意图; 大部分公共方法都提供了使用示例, 查阅借鉴, 或者复制粘贴都很方便. 文档量几乎和代码相当了, 作者在x(推特)上发布的推文也提到了这一点. </p>
+<p>除了代码相关的文档, BurntSushi还写了Jiff的设计文档<a rel="noopener" target="_blank" href="https://github.com/BurntSushi/jiff/blob/master/DESIGN.md">DESIGN.md</a>, 还有和等其他时间库(chrone, time)的比较文档<a rel="noopener" target="_blank" href="https://github.com/BurntSushi/jiff/blob/master/COMPARE.md">COMPARE.md</a>.</p>
+<p>详细的文档能带来几个好处, 一是使用者能更快掌握库的使用, 二是开发者能有更多理解上的共识, 三是给后来的库(或者其他语言的库)提供借鉴. Jiff本身也是站在了&quot;巨人的肩膀&quot;上, 从<a rel="noopener" target="_blank" href="https://tc39.es/proposal-temporal/docs/">temporal</a>, <a rel="noopener" target="_blank" href="https://docs.oracle.com/javase/8/docs/api/java/time/package-summary.html">java.time</a>都有借鉴.</p>
+<h2 id="2-zhu-yao-de-shu-ju-lei-xing">2. 主要的数据类型</h2>
+<h3 id="2-1-shi-jian-chuo-timestamp">2.1 时间戳Timestamp</h3>
+<pre data-lang="rust" style="background-color:#272822;color:#f8f8f2;" class="language-rust "><code class="language-rust" data-lang="rust"><span style="color:#f92672;">pub </span><span style="font-style:italic;color:#66d9ef;">struct </span><span>Timestamp {
+</span><span>    second: UnixSeconds,
+</span><span>    nanosecond: FractionalNanosecond,
+</span><span>}
+</span></code></pre>
+<p>时间戳记录了从<code>Epoch</code>以来经过的秒数, <code>Timestamp</code>属于&quot;绝对&quot;时间, 可以对应到现实时间中的某个具体时刻. <code>Timestamp</code>也可以是&quot;负数&quot;, 代表<code>Epoch</code>之前的时刻.</p>
+<p><code>now()</code>方法可以获取当前的时间, 底层是调用的是操作系统提供的获取当前时间的方法, 在Linux系统上是<code>clock_gettime</code>方法. 和<code>Instant</code>不同的是, <code>Timestamp</code>不保证单调, 在时钟回调的情况下会有所区别.</p>
+<h3 id="2-2-shi-qu-timezone">2.2 时区TimeZone</h3>
+<pre data-lang="rust" style="background-color:#272822;color:#f8f8f2;" class="language-rust "><code class="language-rust" data-lang="rust"><span style="color:#f92672;">pub </span><span style="font-style:italic;color:#66d9ef;">struct </span><span>TimeZone {
+</span><span>    kind: </span><span style="font-style:italic;color:#66d9ef;">Option</span><span>&lt;Arc&lt;TimeZoneKind&gt;&gt;,
+</span><span>}
+</span><span>
+</span><span style="font-style:italic;color:#66d9ef;">enum </span><span>TimeZoneKind {
+</span><span>    Fixed(TimeZoneFixed),
+</span><span>    Posix(TimeZonePosix),
+</span><span>    </span><span style="color:#ae81ff;">TZIF</span><span>(TimeZoneTZIF),
+</span><span>}
+</span></code></pre>
+<p>时区描述了时间戳和本地时间之间的转换规则, Jiff支持固定偏移, POSIX和TZIF三种格式的时区, 统一用枚举类型<code>TimeZone</code>表示.</p>
+<p>因为TZIF格式包含的是不确定的规则, 所以是用<code>Box</code>存在堆上的, 所以<code>TimZone</code>没有实现<code>Copy</code>, 所以在所有权转移的场景下需要注意.</p>
+<h3 id="2-3-dai-shi-qu-de-shi-jian-zoned">2.3 带时区的时间Zoned</h3>
+<pre data-lang="rust" style="background-color:#272822;color:#f8f8f2;" class="language-rust "><code class="language-rust" data-lang="rust"><span style="color:#f92672;">pub </span><span style="font-style:italic;color:#66d9ef;">struct </span><span>Zoned {
+</span><span>    inner: ZonedInner,
+</span><span>}
+</span><span>
+</span><span style="font-style:italic;color:#66d9ef;">struct </span><span>ZonedInner {
+</span><span>    timestamp: Timestamp,
+</span><span>    datetime: DateTime,
+</span><span>    offset: Offset,
+</span><span>    time_zone: TimeZone,
+</span><span>}
+</span></code></pre>
+<p><code>Zoned</code>的主要部分是是时间戳和时区, 一个定义了&quot;绝对&quot;时间, 一个定义了时间转换的规则. <code>Zoned</code>即可以表示&quot;绝对&quot;时间, 对应到具体的时刻; 也可以转换成日常时间, 方便我们使用.</p>
+<p>由于包含了时区信息, 所以<code>Zoned</code>可以也会自动处理夏令时. <code>Zoned</code>支持大小的比较, 只比较时间戳的大小, 日期上的数字和时区不影响结果.</p>
+<h3 id="2-4-ri-chang-shi-jian-time-date-datetime">2.4 日常时间Time, Date, DateTime</h3>
+<pre data-lang="rust" style="background-color:#272822;color:#f8f8f2;" class="language-rust "><code class="language-rust" data-lang="rust"><span style="color:#f92672;">pub </span><span style="font-style:italic;color:#66d9ef;">struct </span><span>Time {
+</span><span>    hour: Hour,
+</span><span>    minute: Minute,
+</span><span>    second: Second,
+</span><span>    subsec_nanosecond: SubsecNanosecond,
+</span><span>}
+</span></code></pre>
+<p><code>Time</code>表示钟表时间, 时分秒, 当然这边还包含了更高的精度纳秒. <code>Time</code>的取值范围是<code>00:00:00.000_000_000</code>到<code>23:59:59.999_999_999</code>.</p>
+<p><code>Time</code>的1小时总是有60分钟(在夏令时规则下, 1小时并不总是60分钟), 而1分钟总是有60秒, 也就不会有<code>07:59:60</code>这样的闰秒时间.</p>
+<pre data-lang="rust" style="background-color:#272822;color:#f8f8f2;" class="language-rust "><code class="language-rust" data-lang="rust"><span style="color:#f92672;">pub </span><span style="font-style:italic;color:#66d9ef;">struct </span><span>Date {
+</span><span>    year: Year,
+</span><span>    month: Month,
+</span><span>    day: Day,
+</span><span>}
+</span></code></pre>
+<p><code>Date</code>表示日历时间, 年月日, <code>year</code>的取值范围是<code>-9999 ~ 9999</code>, <code>month</code>的取值范围是<code>1 ~ 12</code>, <code>day</code>的取值范围是<code>1 ~ 31</code>.</p>
+<p>因为<code>Date</code>要保证总是有效, 所以构造的时候会做检查, 比如月份是6的话, 日就不能是31; 如果月份是2的话, 只有闰年, 日才能是29.</p>
+<pre data-lang="rust" style="background-color:#272822;color:#f8f8f2;" class="language-rust "><code class="language-rust" data-lang="rust"><span style="color:#f92672;">pub </span><span style="font-style:italic;color:#66d9ef;">struct </span><span>DateTime {
+</span><span>    date: Date,
+</span><span>    time: Time,
+</span><span>}
+</span></code></pre>
+<p><code>DateTime</code>就是日期加上时间, 年月日+时分秒, 所以<code>DateTime</code>的取值范围也遵循<code>Date</code>+<code>Time</code>的范围.</p>
+<h3 id="2-5-shi-jian-kua-du-span">2.5 时间跨度Span</h3>
+<pre data-lang="rust" style="background-color:#272822;color:#f8f8f2;" class="language-rust "><code class="language-rust" data-lang="rust"><span style="color:#f92672;">pub </span><span style="font-style:italic;color:#66d9ef;">struct </span><span>Span {
+</span><span>    sign: Sign,
+</span><span>    years: t::SpanYears,
+</span><span>    months: t::SpanMonths,
+</span><span>    days: t::SpanDays,
+</span><span>    hours: t::SpanHours,
+</span><span>    minutes: t::SpanMinutes,
+</span><span>    seconds: t::SpanSeconds,
+</span><span>    ...
+</span><span>}
+</span><span>
+</span><span style="font-style:italic;color:#66d9ef;">let</span><span> a </span><span style="color:#f92672;">= </span><span>Span::new()
+</span><span>  .</span><span style="color:#66d9ef;">days</span><span>(</span><span style="color:#ae81ff;">1</span><span>)
+</span><span>  .</span><span style="color:#66d9ef;">hours</span><span>(</span><span style="color:#ae81ff;">12</span><span>)
+</span><span>  .</span><span style="color:#66d9ef;">minutes</span><span>(</span><span style="color:#ae81ff;">65</span><span>)
+</span><span>  .</span><span style="color:#66d9ef;">seconds</span><span>(</span><span style="color:#ae81ff;">7200</span><span>);
+</span><span style="color:#75715e;">// a = P1dT12h65m7200s 1天12小时65分7200秒
+</span></code></pre>
+<p><code>Span</code>表示两个时间之间的跨度, 不同的时间单位, 都单独记录了值(不进位换算). <code>until</code>, <code>since</code>方法的返回值, 还有<code>*_add</code>, <code>*_sub</code>方法的入参等, 日期之间的数学运算用的都是<code>Span</code>类型.</p>
+<p>标准库里也有<code>Duration</code>表示两个时刻之间的跨度, <code>Span</code>与之不同的地方在于, 一<code>Span</code>有正负, 时间跨度有方向, 可以表示&quot;之后, 也可以表示&quot;之前&quot;; 二保留了不同时间单位的值, 没有全部换算到秒(纳秒), 所以可以处理&quot;不规则&quot;的时间, 比如只有23小时的天.</p>
+<h2 id="3-shi-jian-lei-xing-zhi-jian-de-zhuan-huan">3. 时间类型之间的转换</h2>
+<p>得益于多种时区格式被统一了, 所以时间类型之间的转换也很轻松, 只需要记住, 时区是时间戳和日常时间的&quot;转接头&quot;就行了.</p>
+<p>时间戳在时区化后, 才能转换成日常时间; 而日常时间在时区化后, 才能转换成时间戳; 带时区的时间, 既能转换成时间戳, 也能转换成日常时间, 当然也带有时区信息.</p>
+<h3 id="3-1-timestamp">3.1 Timestamp</h3>
+<pre data-lang="rust" style="background-color:#272822;color:#f8f8f2;" class="language-rust "><code class="language-rust" data-lang="rust"><span>Timestamp.</span><span style="color:#66d9ef;">intz</span><span>(</span><span style="color:#f92672;">&amp;</span><span style="font-style:italic;color:#66d9ef;">str</span><span>) -&gt; </span><span style="font-style:italic;color:#66d9ef;">Result</span><span>&lt;Zoned&gt;
+</span><span>Timestamp.</span><span style="color:#66d9ef;">to_zoned</span><span>(TimeZone) -&gt; Zoned
+</span></code></pre>
+<p><code>Timestamp</code>+<code>TimeZone</code>=<code>Zoned</code>, 时间戳+时区=带时区的时间.</p>
+<h3 id="3-2-time-date-datetime">3.2 Time, Date, DateTime</h3>
+<pre data-lang="rust" style="background-color:#272822;color:#f8f8f2;" class="language-rust "><code class="language-rust" data-lang="rust"><span>Time.</span><span style="color:#66d9ef;">on</span><span>(Y, M, D) -&gt; DateTime
+</span><span>Time.</span><span style="color:#66d9ef;">to_datetime</span><span>(Date) -&gt; DateTime
+</span></code></pre>
+<p><code>Time</code>+<code>Date</code>=<code>DateTime</code>, 时间+日期=日常时间.</p>
+<pre data-lang="rust" style="background-color:#272822;color:#f8f8f2;" class="language-rust "><code class="language-rust" data-lang="rust"><span>Date.</span><span style="color:#66d9ef;">at</span><span>(H, M, S, </span><span style="color:#ae81ff;">NS</span><span>) -&gt; DateTime
+</span><span>Date.</span><span style="color:#66d9ef;">intz</span><span>(</span><span style="color:#f92672;">&amp;</span><span style="font-style:italic;color:#66d9ef;">str</span><span>) -&gt; </span><span style="font-style:italic;color:#66d9ef;">Result</span><span>&lt;Zoned&gt;
+</span><span>Date.</span><span style="color:#66d9ef;">to_zoned</span><span>(TimeZone) -&gt; Zoned
+</span></code></pre>
+<p><code>Date</code>+<code>Time</code>=<code>DateTime</code>, 时间+日期=日常时间.</p>
+<p><code>Date</code>+<code>TimeZone</code>=<code>Zoned</code>, 日期+时区=带时区的时间</p>
+<pre data-lang="rust" style="background-color:#272822;color:#f8f8f2;" class="language-rust "><code class="language-rust" data-lang="rust"><span>DateTime.</span><span style="color:#66d9ef;">date</span><span>() -&gt; Date
+</span><span>DateTime.</span><span style="color:#66d9ef;">time</span><span>() -&gt; Time
+</span><span>DateTime.</span><span style="color:#66d9ef;">intz</span><span>(</span><span style="color:#f92672;">&amp;</span><span style="font-style:italic;color:#66d9ef;">str</span><span>) -&gt; </span><span style="font-style:italic;color:#66d9ef;">Result</span><span>&lt;Zoned&gt;
+</span><span>DateTime.</span><span style="color:#66d9ef;">to_zoned</span><span>(TimeZone) -&gt; Zoned
+</span></code></pre>
+<p><code>DateTime</code>+<code>TimeZone</code>=<code>Zoned</code>, 日常时间+时区=带时区的时间</p>
+<h3 id="3-3-zoned">3.3 Zoned</h3>
+<pre data-lang="rust" style="background-color:#272822;color:#f8f8f2;" class="language-rust "><code class="language-rust" data-lang="rust"><span>Zoned.</span><span style="color:#66d9ef;">date</span><span>() -&gt; Date
+</span><span>Zoned.</span><span style="color:#66d9ef;">time</span><span>() -&gt; Time
+</span><span>Zoned.</span><span style="color:#66d9ef;">datetime</span><span>() -&gt; DateTime
+</span><span>Zoned.</span><span style="color:#66d9ef;">intz</span><span>(</span><span style="color:#f92672;">&amp;</span><span style="font-style:italic;color:#66d9ef;">str</span><span>) -&gt; </span><span style="font-style:italic;color:#66d9ef;">Result</span><span>&lt;Zoned&gt;
+</span><span>Zoned.</span><span style="color:#66d9ef;">timestamp</span><span>() -&gt; TimeStamp
+</span><span>Zoned.</span><span style="color:#66d9ef;">time_zone</span><span>() -&gt; </span><span style="color:#f92672;">&amp;</span><span>TimeZone
+</span></code></pre>
+<p>带时区的时间<code>Zoned</code>是集大成者, 包含了<code>Date</code>, <code>Time</code>, <code>DateTiem</code>, <code>Timestamp</code>, <code>TimeZone</code>.</p>
+<h2 id="4-fu-zhu-cao-zuo-lei-xing">4. 辅助操作类型</h2>
+
+  
+  
+    
+    
+  
+  <img src="https://dlzht.github.io/image/015_02.png" alt="image 404" class="center" decoding="async" loading="lazy"/>
+
+<h3 id="4-1-shi-jian-kua-du-difference">4.1 时间跨度Difference</h3>
+<pre data-lang="rust" style="background-color:#272822;color:#f8f8f2;" class="language-rust "><code class="language-rust" data-lang="rust"><span style="font-style:italic;color:#66d9ef;">let</span><span> a </span><span style="color:#f92672;">= </span><span style="color:#66d9ef;">date</span><span>(</span><span style="color:#ae81ff;">2024</span><span>, </span><span style="color:#ae81ff;">1</span><span>, </span><span style="color:#ae81ff;">1</span><span>).</span><span style="color:#66d9ef;">at</span><span>(</span><span style="color:#ae81ff;">0</span><span>, </span><span style="color:#ae81ff;">0</span><span>, </span><span style="color:#ae81ff;">0</span><span>, </span><span style="color:#ae81ff;">0</span><span>);
+</span><span style="font-style:italic;color:#66d9ef;">let</span><span> b </span><span style="color:#f92672;">= </span><span style="color:#66d9ef;">date</span><span>(</span><span style="color:#ae81ff;">2024</span><span>, </span><span style="color:#ae81ff;">1</span><span>, </span><span style="color:#ae81ff;">1</span><span>).</span><span style="color:#66d9ef;">at</span><span>(</span><span style="color:#ae81ff;">1</span><span>, </span><span style="color:#ae81ff;">22</span><span>, </span><span style="color:#ae81ff;">3</span><span>, </span><span style="color:#ae81ff;">0</span><span>);
+</span><span style="font-style:italic;color:#66d9ef;">let</span><span> c </span><span style="color:#f92672;">=</span><span> a.</span><span style="color:#66d9ef;">until</span><span>(
+</span><span>  DateTimeDifference::new(b)
+</span><span>    .</span><span style="color:#66d9ef;">smallest</span><span>(Unit::Minute)       </span><span style="color:#75715e;">// 最小单位是分, 秒会被舍掉
+</span><span>    .</span><span style="color:#66d9ef;">mode</span><span>(RoundMode::HalfExpand)  </span><span style="color:#75715e;">// 取舍的策略是HalfExpand
+</span><span>    .</span><span style="color:#66d9ef;">increment</span><span>(</span><span style="color:#ae81ff;">6</span><span>)                 </span><span style="color:#75715e;">// 最终结果是6的倍数, 22更接近24
+</span><span>).</span><span style="color:#66d9ef;">unwrap</span><span>();
+</span><span style="color:#75715e;">// c = PT1h24m
+</span></code></pre>
+<p><code>*Difference</code>类型主要用来计算时间跨度, 比如在<code>since</code>和<code>until</code>方法里. <code>*Difference</code>为计算时间跨度提供了配置, 有三个方面.</p>
+<p>一是指定最大和最小的单位, 比如1小时, 既可以用单位&quot;小时&quot;表示, 也能用单位&quot;分&quot;或&quot;秒&quot;表示, 我们可以限制到底用什么单位.</p>
+<p>二是怎么处理&quot;小数&quot;, 比如我们使用的最小单位是分, 那秒级开始就是&quot;小数&quot;. 我们可以设置取舍的规则, 是&quot;四舍五入&quot;, 还是直接丢弃, 还是其他什么策略.</p>
+<p>三是设置结果的幅度, 比如设置成n的话, 就会把结果与n * m和n * (m+1)两个数比较, 然后取更&quot;接        近&quot;的那个做为最终结果.</p>
+<h3 id="4-2-round">4.2 Round</h3>
+<pre data-lang="rust" style="background-color:#272822;color:#f8f8f2;" class="language-rust "><code class="language-rust" data-lang="rust"><span style="font-style:italic;color:#66d9ef;">let</span><span> a </span><span style="color:#f92672;">= </span><span style="color:#66d9ef;">date</span><span>(</span><span style="color:#ae81ff;">2024</span><span>, </span><span style="color:#ae81ff;">1</span><span>, </span><span style="color:#ae81ff;">1</span><span>).</span><span style="color:#66d9ef;">at</span><span>(</span><span style="color:#ae81ff;">1</span><span>, </span><span style="color:#ae81ff;">2</span><span>, </span><span style="color:#ae81ff;">35</span><span>, </span><span style="color:#ae81ff;">0</span><span>);
+</span><span style="font-style:italic;color:#66d9ef;">let</span><span> b </span><span style="color:#f92672;">=</span><span> a.</span><span style="color:#66d9ef;">round</span><span>(
+</span><span>  DateTimeRound::new()
+</span><span>    .</span><span style="color:#66d9ef;">smallest</span><span>(Unit::Minute)   </span><span style="color:#75715e;">// 最小单位是分
+</span><span>    .</span><span style="color:#66d9ef;">mode</span><span>(RoundMode::Trunc)   </span><span style="color:#75715e;">// 直接丢弃策略
+</span><span>).</span><span style="color:#66d9ef;">unwrap</span><span>();
+</span><span style="color:#75715e;">// b = 2024-01-01T01:02:00
+</span></code></pre>
+<p><code>*Round</code>类型用来对时间做取舍操作, 我们可以指定最小的保留单位, 然后设置取舍的规则, 同样也可以设置结果的幅度是什么.</p>
+<h3 id="4-3-with">4.3 With</h3>
+<pre data-lang="rust" style="background-color:#272822;color:#f8f8f2;" class="language-rust "><code class="language-rust" data-lang="rust"><span style="font-style:italic;color:#66d9ef;">let</span><span> a </span><span style="color:#f92672;">= </span><span style="color:#66d9ef;">date</span><span>(</span><span style="color:#ae81ff;">2024</span><span>, </span><span style="color:#ae81ff;">1</span><span>, </span><span style="color:#ae81ff;">1</span><span>).</span><span style="color:#66d9ef;">at</span><span>(</span><span style="color:#ae81ff;">0</span><span>, </span><span style="color:#ae81ff;">0</span><span>, </span><span style="color:#ae81ff;">0</span><span>, </span><span style="color:#ae81ff;">0</span><span>);
+</span><span style="font-style:italic;color:#66d9ef;">let</span><span> b </span><span style="color:#f92672;">=</span><span> a.</span><span style="color:#66d9ef;">with</span><span>()
+</span><span>  .</span><span style="color:#66d9ef;">hour</span><span>(</span><span style="color:#ae81ff;">1</span><span>)
+</span><span>  .</span><span style="color:#66d9ef;">minute</span><span>(</span><span style="color:#ae81ff;">2</span><span>)
+</span><span>  .</span><span style="color:#66d9ef;">build</span><span>().</span><span style="color:#66d9ef;">unwrap</span><span>();
+</span></code></pre>
+<p><code>*With</code>类型用来修改时间的某些字段, 这里需要注意的是, <code>with(self)</code>方法的入参是值类型.</p>
+<h3 id="4-4-series">4.4 Series</h3>
+<pre data-lang="rust" style="background-color:#272822;color:#f8f8f2;" class="language-rust "><code class="language-rust" data-lang="rust"><span style="font-style:italic;color:#66d9ef;">let</span><span> a </span><span style="color:#f92672;">= </span><span style="color:#66d9ef;">date</span><span>(</span><span style="color:#ae81ff;">2024</span><span>, </span><span style="color:#ae81ff;">1</span><span>, </span><span style="color:#ae81ff;">1</span><span>).</span><span style="color:#66d9ef;">at</span><span>(</span><span style="color:#ae81ff;">0</span><span>, </span><span style="color:#ae81ff;">0</span><span>, </span><span style="color:#ae81ff;">0</span><span>, </span><span style="color:#ae81ff;">0</span><span>);
+</span><span style="font-style:italic;color:#66d9ef;">let </span><span style="color:#f92672;">mut</span><span> b </span><span style="color:#f92672;">=</span><span> a.</span><span style="color:#66d9ef;">series</span><span>(Span::new().</span><span style="color:#66d9ef;">days</span><span>(</span><span style="color:#ae81ff;">1</span><span>));  </span><span style="color:#75715e;">// 跨度为1天
+</span><span style="color:#75715e;">// b.next = Some(2024-01-01T00:00:00)
+</span><span style="color:#75715e;">// b.next = Some(2024-01-02T00:00:00)
+</span></code></pre>
+<p><code>*Series</code>类型用来生成一系列的的时间, 我们可以指定时间的跨度, <code>series(self, ...)</code>方法的入参也是值类型.</p>
+<h2 id="5-xiao-jie">5. 小结</h2>
+<p>这篇文章简述了Jiff时间库的一些优点, 以及库里主要的数据结构和操作方法. 因为篇幅的原因, 具体的使用示例, 还有其他一些值得探讨的问题, 会放到后续的文章中, 感谢!</p>
+<h2 id="6-geng-xin-ri-zhi">6. 更新日志</h2>
+<p>这边只罗列了相对来说比较重要的, 比如和Rust生态集成, 严重BUG修复, 新增平台支持等, 完整的更新日志在</p>
+<h3 id="0-1-1-2024-07-26">0.1.1 (2024-07-26)</h3>
+<ul>
+<li>支持标准库的<code>Duration</code>和<code>Span</code>互相转换(try_from).</li>
+</ul>
+<h3 id="0-1-3-2024-07-30">0.1.3 (2024-07-30)</h3>
+<ul>
+<li>支持<code>wasm{32, 64}-unknown-unknown</code>, 需要开启<code>js</code>特性</li>
+</ul>
+</br>
+<p><em>-&gt; 如果文章有不足之处或者有改进的建议，可以在<a rel="noopener" target="_blank" href="https://github.com/dlzht/dlzht.github.io/discussions/12">这边</a>告诉我，也可以发送给我的<a href="mailto:dlzht@protonmail.com">邮箱</a></em></p>
+
+        </div>
+
+        
+        <div class="pagination">
+            <!-- <div class="pagination__title"> -->
+                <!-- <span class="pagination__title-h">++</span> -->
+                <!-- <hr /> -->
+            <!-- </div> -->
+            <div class="pagination__buttons">
+                    <span class="button previous">
+                        <a href="https://dlzht.github.io/014-ji-suan-ji-li-de-shi-jian/">
+                            <span class="button__icon">←</span>&nbsp;
+                            <span class="button__text">计算机里的时间</span>
+                        </a>
+                    </span>
+                
+                
+                    <span class="button next">
+                        <a href="https://dlzht.github.io/016-tokioshi-jian-lun-jie-gou/">
+                            <span class="button__text">Tokio的时间轮结构</span>&nbsp;
+                            <span class="button__icon">→</span>
+                        </a>
+                    </span>
+                </div>
+        </div>
+    
+    </div>
+
+    </div>
+
+    
+    <footer class="footer">
+        <div class="footer__inner">
+                <div class="copyright copyright--user">Email:&nbsp;<a href=mailto:dlzht@protonmail.com>dlzht@protonmail.com</a></div>
+            </div>
+    </footer>
+    
+
+</div>
+</body>
+
+</html>

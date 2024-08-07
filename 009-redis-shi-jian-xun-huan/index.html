@@ -1,0 +1,380 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <script async src="https://www.googletagmanager.com/gtag/js?id=G-Q8CTC2C6DM"></script>
+    <script>
+        window.dataLayer = window.dataLayer || [];
+        function gtag(){dataLayer.push(arguments);}
+        gtag('js', new Date());
+        gtag('config', 'G-Q8CTC2C6DM');
+    </script>
+
+    <title></title>
+    
+    <meta http-equiv="content-type" content="text/html; charset=utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1">
+    <meta name="robots" content="noodp"/>
+
+    <link rel="stylesheet" href="https://dlzht.github.io/style.css">
+    <link rel="stylesheet" href="https://dlzht.github.io/color/blue-light.css">
+
+        <link rel="stylesheet" href="https://dlzht.github.io/color/background_light.css">
+    
+    <link rel="stylesheet" href="https://dlzht.github.io/font-hack-subset.css">
+
+    <meta name="description" content="">
+
+    <meta property="og:description" content="">
+    <meta property="og:title" content="">
+    <meta property="og:type" content="article">
+    <meta property="og:url" content="https://dlzht.github.io/009-redis-shi-jian-xun-huan/">
+
+    <meta name="twitter:card" content="summary_large_image">
+    <meta name="twitter:description" content="">
+    <meta name="twitter:title" content="">
+    <meta property="twitter:domain" content="dlzht.github.io">
+    <meta property="twitter:url" content="https://dlzht.github.io/009-redis-shi-jian-xun-huan/">
+
+    </head>
+
+<body class="">
+<div class="container">
+    
+    <header class="header">
+        <div class="header__inner">
+            <div class="header__logo">
+                    
+                <a href="https://dlzht.github.io" style="text-decoration: none;">
+                    <div class="logo">
+                      
+                            QianQi dlzht@protonmail.com
+                        
+                    </div>
+                </a>
+            </div>
+        </div>
+
+        
+        
+                <nav class="menu">
+            <ul class="menu__inner">
+                <li class="active"><a href="https://dlzht.github.io">主页</a></li>
+            
+                <li><a href="https://dlzht.github.io/tags">标签</a></li>
+            
+                <li><a href="https://dlzht.github.io/about">关于</a></li>
+            
+                <li><a href="https://dlzht.github.io/archive">归档</a></li>
+            </ul>
+        </nav>
+    
+    
+        
+    </header>
+    
+
+    <div class="content">
+        
+    <div class="post">
+        
+    <h1 class="post-title"><a href="https://dlzht.github.io/009-redis-shi-jian-xun-huan/">从redis源码讲事件循环</a></h1>
+    <div class="post-meta-inline">
+        
+    <span class="post-date">
+            2024-05-18
+        </span>
+
+    </div>
+
+    
+        <span class="post-tags-inline">
+                :: tags:&nbsp;
+                <a class="post-tag" href="https://dlzht.github.io/tags/redis/">#redis</a>&nbsp;
+                <a class="post-tag" href="https://dlzht.github.io/tags/yi-bu/">#异步</a></span>
+    
+
+        <div class="post-content">
+            <p>redis是用C实现的, 事件循环部分简洁而优雅, 代码也紧凑而独立, 不仅能比较流畅地阅读, 而且能很方便地引用到项目中, 压测工具<a rel="noopener" target="_blank" href="https://github.com/wg/wrk/blob/master/src/ae.c">wrk</a>就使用了这部分代码. 下面我们就开始介绍redis中事件循环的实现.</p>
+<span id="continue-reading"></span><h2 id="shu-ju-jie-gou">数据结构</h2>
+<h4 id="1-shi-jian-shi-jian">1. 时间事件</h4>
+<pre data-lang="c" style="background-color:#272822;color:#f8f8f2;" class="language-c "><code class="language-c" data-lang="c"><span style="color:#75715e;">// 时间事件
+</span><span style="font-style:italic;color:#66d9ef;">typedef struct</span><span> aeTimeEvent {
+</span><span>  </span><span style="font-style:italic;color:#66d9ef;">long long</span><span> id; </span><span style="color:#75715e;">//递增id
+</span><span>  monotime when; </span><span style="color:#75715e;">//触发时刻
+</span><span>  aeTimeProc </span><span style="color:#f92672;">*</span><span>timeProc; </span><span style="color:#75715e;">//触发时执行
+</span><span>  aeEventFinalizerProc </span><span style="color:#f92672;">*</span><span>finalizerProc; </span><span style="color:#75715e;">//删除时执行
+</span><span>  </span><span style="font-style:italic;color:#66d9ef;">struct</span><span> aeTimeEvent </span><span style="color:#f92672;">*</span><span>prev, </span><span style="color:#f92672;">*</span><span>next; </span><span style="color:#75715e;">//链表指针
+</span><span>  </span><span style="color:#f92672;">...
+</span><span>} aeTimeEvent;
+</span></code></pre>
+<p>时间事件是到了某个时间点触发. 因为对redis来说时间事件的数量不会很多, 所以这边用链表来管理, <code>perv</code>和<code>next</code>两个指针前后相连, 每轮事件处理会遍历整个链表. <code>id</code>字段类似于数据库里的自增字段, 当事件不再需要了, 就设置成<code>AE_DELETED_EVENT_ID</code>(-1), 下次遍历时会从链表里删除.</p>
+<p><code>when</code>是在什么时间触发, <code>timeProc</code>是触发时执行什么操作. 遍历链表处理事件时, 就比较<code>when</code>和当前时间<code>now</code>, 如果触发时间早于当前时间, 就执行<code>timeProc</code>函数. <code>aeEventFinalizerProc</code>是删除后置操作, 把事件从链表里删除后触发.</p>
+<pre data-lang="c" style="background-color:#272822;color:#f8f8f2;" class="language-c "><code class="language-c" data-lang="c"><span style="color:#75715e;">// 周期任务serverCron
+</span><span>aeCreateTimeEvent(server.el, </span><span style="color:#ae81ff;">1</span><span>, serverCron, </span><span style="color:#ae81ff;">NULL</span><span>, </span><span style="color:#ae81ff;">NULL</span><span>);
+</span><span style="color:#75715e;">// 即时任务evictionTimeProc
+</span><span>aeCreateTimeEvent(server.el, </span><span style="color:#ae81ff;">0</span><span>, evictionTimeProc, </span><span style="color:#ae81ff;">NULL</span><span>, </span><span style="color:#ae81ff;">NULL</span><span>);
+</span></code></pre>
+<p>redis里的时间事件主要有:</p>
+<ol>
+<li>周期执行的<code>serverCron</code>, 1毫秒执行一次, 每次执行完会设置下次执行的时间. 很大后台任务都会在这里面执行, 配合上<code>hz</code>参数可以调整任务的执行频率.</li>
+<li>即时执行的<code>evictionTimeProc</code>, 当内存使用量达到<code>maxmemory</code>时, 会创建这个时间事件用来释放内存, 触发时间设置成当前时间, 意味着需要立即执行.</li>
+</ol>
+<h4 id="2-wen-jian-shi-jian">2. 文件事件</h4>
+<pre data-lang="c" style="background-color:#272822;color:#f8f8f2;" class="language-c "><code class="language-c" data-lang="c"><span style="color:#75715e;">// 文件事件
+</span><span style="font-style:italic;color:#66d9ef;">typedef struct</span><span> aeFileEvent {
+</span><span>  </span><span style="font-style:italic;color:#66d9ef;">int</span><span> mask; </span><span style="color:#75715e;">//读写标记         
+</span><span>  aeFileProc </span><span style="color:#f92672;">*</span><span>rfileProc; </span><span style="color:#75715e;">//读事件操作
+</span><span>  aeFileProc </span><span style="color:#f92672;">*</span><span>wfileProc; </span><span style="color:#75715e;">//写事件操作
+</span><span>  </span><span style="color:#f92672;">...
+</span><span>} aeFileEvent;
+</span></code></pre>
+<p>文件事件是某个文件可读或者可写时触发. 和操作系统用数组维护进程的打开文件一样, redis也用数组维护了打开的文件(网络套接字, 管道文件等), fd也是aeEventLoop里的events数组的下标.</p>
+<p><em>fd文件操作符是什么? 对于每个进程, Linux系统会维护一个数组, 保存进程打开的每个文件(文件, 套接字, 管道等待)的信息. 配置服务器时经常要用ulimit调整最大连接数, 调整的其实就是这个数组的长度. 而fd就是这个数组的下标, 程序把fd给到系统, 系统找到对应的文件信息项, 就知道程序要操作的是哪个文件.</em></p>
+<p>就像上面说的, fd和数组的下标是相同的, 所以用来表示哪个文件的fd没有再出现在结构体里. <code>mask</code>字段是读写标记, 表示关注的是可读还是可写事件. <code>rfileProc</code>和<code>wfileProc</code>分别是可读和可写事件发生时要执行的操作.</p>
+<pre data-lang="c" style="background-color:#272822;color:#f8f8f2;" class="language-c "><code class="language-c" data-lang="c"><span style="color:#75715e;">// 服务监听
+</span><span>aeCreateFileEvent(server.el, sfd-&gt;fd[j], AE_READABLE, accept_handler,</span><span style="color:#ae81ff;">NULL</span><span>);
+</span><span style="color:#75715e;">// 连接事件
+</span><span>aeCreateFileEvent(server.el, conn-&gt;fd, AE_WRITABLE, conn-&gt;type-&gt;ae_handler, conn);
+</span><span style="color:#f92672;">...
+</span></code></pre>
+<p>redis里的文件事件主要有:</p>
+<ol>
+<li>服务监听端口(比如6379)产生的网络套接字, 每当有客户端来连接时, 这个文件就会变成可读</li>
+<li>接受客户端连接后会产生另一个套接字, 有读取请求也有返回结果, 会陆续注册可读和可写事件</li>
+<li>aof和rdb文件的读写, 哨兵之间的通信</li>
+</ol>
+<h4 id="3-jiu-xu-shi-jian">3. 就绪事件</h4>
+<pre data-lang="c" style="background-color:#272822;color:#f8f8f2;" class="language-c "><code class="language-c" data-lang="c"><span style="color:#75715e;">// 就绪事件
+</span><span style="font-style:italic;color:#66d9ef;">typedef struct</span><span> aeFiredEvent {
+</span><span>  </span><span style="font-style:italic;color:#66d9ef;">int</span><span> fd; </span><span style="color:#75715e;">//文件描述符
+</span><span>  </span><span style="font-style:italic;color:#66d9ef;">int</span><span> mask; </span><span style="color:#75715e;">//读写标记
+</span><span>  </span><span style="color:#f92672;">...
+</span><span>} aeFiredEvent;
+</span></code></pre>
+<p>就绪事件不是另外一种事件类型, 只是用来记录哪个文件事件就绪了. <code>fd</code>就是系统返回的文件描述符, 也是文件事件在events数组里的下标, <code>mask</code>用来标记就绪的事件是可读还是可写. 就绪事件也是用数组来保存的, 数组的大小和维护文件事件的数组一样(最多是所有文件都就绪).</p>
+<h4 id="4-shi-jian-xun-huan">4. 事件循环</h4>
+
+  
+  
+    
+    
+  
+  <img src="https://dlzht.github.io/image/009_01.png" alt="image 404" class="center" decoding="async" loading="lazy"/>
+
+<p><code>aeEventLoop</code>是事件循环的主角, <code>timeEventNextId</code>保存当前时间事件的id, 每次创建一个时间事件时会自增. <code>aeFileEvent</code>数组存储文件事件, <code>aeFiredEvent</code>存储就绪的事件, <code>timeEventHead</code>链表存储时间事件, <code>beforesleep</code>和<code>aftersleep</code>则是在每次poll的前置和后置操作.</p>
+<h2 id="dai-ma-shi-xian">代码实现</h2>
+<p>事件循环相关的代码(<a rel="noopener" target="_blank" href="https://github.com/redis/redis/tree/6.2.14/">6.2.14</a>)主要集中在<a rel="noopener" target="_blank" href="https://github.com/redis/redis/blob/6.2.14/src/ae.h">ae.h</a>, <a rel="noopener" target="_blank" href="https://github.com/redis/redis/blob/6.2.14/src/ae.c">ae.c</a>和<a rel="noopener" target="_blank" href="https://github.com/redis/redis/blob/6.2.14/src/ae_epoll.c">ae_epoll.c</a>. ae.h里是数据结构和函数方法的定义, ae.c里是相关函数的具体实现, 而ae_epoll.cli里则是对<a rel="noopener" target="_blank" href="https://man7.org/linux/man-pages/man7/epoll.7.html">epoll</a>的封装. </p>
+<h4 id="1-chuang-jian-he-qi-dong-shi-jian-xun-huan">1. 创建和启动事件循环</h4>
+<pre data-lang="c" style="background-color:#272822;color:#f8f8f2;" class="language-c "><code class="language-c" data-lang="c"><span style="font-style:italic;color:#66d9ef;">int </span><span style="color:#a6e22e;">main</span><span>(</span><span style="font-style:italic;color:#66d9ef;">int </span><span style="font-style:italic;color:#fd971f;">argc</span><span>, </span><span style="font-style:italic;color:#66d9ef;">char </span><span style="color:#f92672;">**</span><span style="font-style:italic;color:#fd971f;">argv</span><span>) { 
+</span><span>  initServer();
+</span><span>  </span><span style="color:#75715e;">// 启动事件循环
+</span><span>  aeMain(server.el);
+</span><span>}
+</span><span>
+</span><span style="font-style:italic;color:#66d9ef;">void </span><span style="color:#a6e22e;">initServer</span><span>(</span><span style="font-style:italic;color:#66d9ef;">void</span><span>) { 
+</span><span>  </span><span style="color:#75715e;">// 创建事件循环
+</span><span>  server.el </span><span style="color:#f92672;">= </span><span>aeCreateEventLoop(server.maxclients</span><span style="color:#f92672;">+</span><span>CONFIG_FDSET_INCR);
+</span><span>}
+</span><span>
+</span><span>aeEventLoop </span><span style="color:#f92672;">*</span><span style="color:#a6e22e;">aeCreateEventLoop</span><span>(</span><span style="font-style:italic;color:#66d9ef;">int </span><span style="font-style:italic;color:#fd971f;">setsize</span><span>) {
+</span><span>  </span><span style="color:#f92672;">if </span><span>((eventLoop </span><span style="color:#f92672;">= </span><span>zmalloc(</span><span style="color:#f92672;">sizeof</span><span>(</span><span style="color:#f92672;">*</span><span>eventLoop))) </span><span style="color:#f92672;">== </span><span style="color:#ae81ff;">NULL</span><span>) </span><span style="color:#f92672;">goto</span><span> err;
+</span><span>  </span><span style="color:#75715e;">// 申请文件事件数组的内存
+</span><span>  eventLoop-&gt;events </span><span style="color:#f92672;">= </span><span>zmalloc(</span><span style="color:#f92672;">sizeof</span><span>(aeFileEvent)</span><span style="color:#f92672;">*</span><span>setsize);
+</span><span>  </span><span style="color:#75715e;">// 申请就绪事件数组的内存
+</span><span>  eventLoop-&gt;fired </span><span style="color:#f92672;">= </span><span>zmalloc(</span><span style="color:#f92672;">sizeof</span><span>(aeFiredEvent)</span><span style="color:#f92672;">*</span><span>setsize);
+</span><span>  eventLoop-&gt;timeEventNextId </span><span style="color:#f92672;">= </span><span style="color:#ae81ff;">0</span><span>;
+</span><span>  </span><span style="color:#f92672;">for </span><span>(i </span><span style="color:#f92672;">= </span><span style="color:#ae81ff;">0</span><span>; i </span><span style="color:#f92672;">&lt;</span><span> setsize; i</span><span style="color:#f92672;">++</span><span>)
+</span><span>    </span><span style="color:#75715e;">// 清理事件的读写就绪标记
+</span><span>    eventLoop-&gt;events[i].mask </span><span style="color:#f92672;">=</span><span> AE_NONE;
+</span><span>  </span><span style="color:#f92672;">return</span><span> eventLoop;
+</span><span>}
+</span></code></pre>
+<p>先来看<a rel="noopener" target="_blank" href="https://github.com/redis/redis/blob/6.2.14/src/server.c#L3216">server.c</a>里创建<code>aeEventLoop</code>的代码. <code>main</code>函数会在调用<code>initServer</code>时创建事件循环<code>eventLoop</code>, 然后调用<code>aeMain</code>启动事件循环.</p>
+<pre data-lang="c" style="background-color:#272822;color:#f8f8f2;" class="language-c "><code class="language-c" data-lang="c"><span style="font-style:italic;color:#66d9ef;">void </span><span style="color:#a6e22e;">aeMain</span><span>(aeEventLoop </span><span style="color:#f92672;">*</span><span style="font-style:italic;color:#fd971f;">eventLoop</span><span>) {
+</span><span>  eventLoop-&gt;stop </span><span style="color:#f92672;">= </span><span style="color:#ae81ff;">0</span><span>;
+</span><span>  </span><span style="color:#f92672;">while </span><span>(</span><span style="color:#f92672;">!</span><span>eventLoop-&gt;stop) {
+</span><span>    aeProcessEvents(eventLoop, AE_ALL_EVENTS</span><span style="color:#f92672;">|</span><span>AE_CALL_BEFORE_SLEEP</span><span style="color:#f92672;">|</span><span>AE_CALL_AFTER_SLEEP);
+</span><span>  }
+</span><span>}
+</span></code></pre>
+<p><code>aeMain</code>执行事件循环的代码很简单, 只要服务不暂停, 就一直执行<code>aeProcessEvents</code>这个函数, 而<code>aeProcessEvents</code>里会处理所有的文件事件和时间事件.</p>
+<h4 id="2-chu-li-wen-jian-shi-jian-he-shi-jian-shi-jian">2. 处理文件事件和时间事件</h4>
+<pre data-lang="c" style="background-color:#272822;color:#f8f8f2;" class="language-c "><code class="language-c" data-lang="c"><span style="font-style:italic;color:#66d9ef;">int </span><span style="color:#a6e22e;">aeProcessEvents</span><span>(aeEventLoop </span><span style="color:#f92672;">*</span><span style="font-style:italic;color:#fd971f;">eventLoop</span><span>, </span><span style="font-style:italic;color:#66d9ef;">int </span><span style="font-style:italic;color:#fd971f;">flags</span><span>) {
+</span><span>  </span><span style="color:#f92672;">if </span><span>(eventLoop-&gt;maxfd </span><span style="color:#f92672;">!= -</span><span style="color:#ae81ff;">1 </span><span style="color:#f92672;">|| </span><span>((flags </span><span style="color:#f92672;">&amp;</span><span> AE_TIME_EVENTS) </span><span style="color:#f92672;">&amp;&amp; !</span><span>(flags </span><span style="color:#f92672;">&amp;</span><span> AE_DONT_WAIT))) {
+</span><span>    </span><span style="color:#75715e;">// 遍历时间事件链表, 找到最早事件的触发时间
+</span><span>    </span><span style="color:#f92672;">if </span><span>(flags </span><span style="color:#f92672;">&amp;</span><span> AE_TIME_EVENTS </span><span style="color:#f92672;">&amp;&amp; !</span><span>(flags </span><span style="color:#f92672;">&amp;</span><span> AE_DONT_WAIT))
+</span><span>      usUntilTimer </span><span style="color:#f92672;">= </span><span>usUntilEarliestTimer(eventLoop);
+</span><span>    </span><span style="color:#f92672;">if </span><span>(usUntilTimer </span><span style="color:#f92672;">&gt;= </span><span style="color:#ae81ff;">0</span><span>) {
+</span><span>      tv.tv_sec </span><span style="color:#f92672;">=</span><span> usUntilTimer </span><span style="color:#f92672;">/ </span><span style="color:#ae81ff;">1000000</span><span>;
+</span><span>      tv.tv_usec </span><span style="color:#f92672;">=</span><span> usUntilTimer </span><span style="color:#f92672;">% </span><span style="color:#ae81ff;">1000000</span><span>;
+</span><span>      tvp </span><span style="color:#f92672;">= &amp;</span><span>tv;
+</span><span>    }
+</span><span>    </span><span style="color:#75715e;">// 执行poll前置操作
+</span><span>    </span><span style="color:#f92672;">if </span><span>(eventLoop-&gt;beforesleep </span><span style="color:#f92672;">!= </span><span style="color:#ae81ff;">NULL </span><span style="color:#f92672;">&amp;&amp;</span><span> flags </span><span style="color:#f92672;">&amp;</span><span> AE_CALL_BEFORE_SLEEP)
+</span><span>      eventLoop-&gt;beforesleep(eventLoop);
+</span><span>    </span><span style="color:#75715e;">// epoll调用的封装
+</span><span>    numevents </span><span style="color:#f92672;">= </span><span>aeApiPoll(eventLoop, tvp);
+</span><span>    </span><span style="color:#75715e;">// 执行poll后置操作
+</span><span>    </span><span style="color:#f92672;">if </span><span>(eventLoop-&gt;aftersleep </span><span style="color:#f92672;">!= </span><span style="color:#ae81ff;">NULL </span><span style="color:#f92672;">&amp;&amp;</span><span> flags </span><span style="color:#f92672;">&amp;</span><span> AE_CALL_AFTER_SLEEP)
+</span><span>      eventLoop-&gt;aftersleep(eventLoop);
+</span><span>    </span><span style="color:#75715e;">// 遍历处理就绪的事件
+</span><span>    </span><span style="color:#f92672;">for </span><span>(j </span><span style="color:#f92672;">= </span><span style="color:#ae81ff;">0</span><span>; j </span><span style="color:#f92672;">&lt;</span><span> numevents; j</span><span style="color:#f92672;">++</span><span>) {
+</span><span>      </span><span style="font-style:italic;color:#66d9ef;">int</span><span> fd </span><span style="color:#f92672;">=</span><span> eventLoop-&gt;fired[j].fd;
+</span><span>      aeFileEvent </span><span style="color:#f92672;">*</span><span>fe </span><span style="color:#f92672;">= &amp;</span><span>eventLoop-&gt;events[fd];
+</span><span>      </span><span style="font-style:italic;color:#66d9ef;">int</span><span> mask </span><span style="color:#f92672;">=</span><span> eventLoop-&gt;fired[j].mask;
+</span><span>      </span><span style="color:#75715e;">// 执行读就绪操作
+</span><span>      </span><span style="color:#f92672;">if </span><span>(</span><span style="color:#f92672;">!</span><span>invert </span><span style="color:#f92672;">&amp;&amp;</span><span> fe-&gt;mask </span><span style="color:#f92672;">&amp;</span><span> mask </span><span style="color:#f92672;">&amp;</span><span> AE_READABLE) {
+</span><span>        fe-&gt;rfileProc(eventLoop,fd,fe-&gt;clientData,mask);
+</span><span>      }
+</span><span>      </span><span style="color:#75715e;">// 执行写就绪操作
+</span><span>      </span><span style="color:#f92672;">if </span><span>(fe-&gt;mask </span><span style="color:#f92672;">&amp;</span><span> mask </span><span style="color:#f92672;">&amp;</span><span> AE_WRITABLE) {
+</span><span>        fe-&gt;wfileProc(eventLoop,fd,fe-&gt;clientData,mask);
+</span><span>      }
+</span><span>      processed</span><span style="color:#f92672;">++</span><span>;
+</span><span>    }
+</span><span>  }
+</span><span>  </span><span style="color:#75715e;">// 处理时间事件
+</span><span>  </span><span style="color:#f92672;">if </span><span>(flags </span><span style="color:#f92672;">&amp;</span><span> AE_TIME_EVENTS)
+</span><span>    processed </span><span style="color:#f92672;">+= </span><span>processTimeEvents(eventLoop);
+</span><span>  </span><span style="color:#f92672;">return</span><span> processed;
+</span><span>}
+</span></code></pre>
+<p><code>aeProcessEvents</code>会先遍历时间事件链表, 找到最早时间事件的触发时间, 然后先执行poll前置操作<code>beforesleep</code>. </p>
+<p>接着是调用epoll(Linux下)的封装<code>aeApiPoll</code>, 第二个入参<code>tvp</code>是超时时间, 传入的值是上面的最早的时间事件的触发时间. 调用<code>aeApiPoll</code>时线程会阻塞, 直到有文件事件就绪或者超时时间到达, 这边利用了&quot;超时时间&quot;这个参数, 实现了时间和文件事件都能唤醒事件循环.</p>
+<p><code>aeApiPoll</code>返回后就执行poll后置操作<code>aftersleep</code>, 然后遍历就绪事件, 根据是读事件就绪还是写事件就绪, 调用<code>rfileProc</code>或者<code>wfileProc</code>. 处理完了文件事件后, 再调用<code>processTimeEvents</code>处理时间事件.</p>
+<pre data-lang="c" style="background-color:#272822;color:#f8f8f2;" class="language-c "><code class="language-c" data-lang="c"><span style="color:#f92672;">static </span><span style="font-style:italic;color:#66d9ef;">int </span><span style="color:#a6e22e;">processTimeEvents</span><span>(aeEventLoop </span><span style="color:#f92672;">*</span><span style="font-style:italic;color:#fd971f;">eventLoop</span><span>) {
+</span><span>  te </span><span style="color:#f92672;">=</span><span> eventLoop-&gt;timeEventHead;
+</span><span>  </span><span style="color:#75715e;">// 遍历时间事件链表
+</span><span>  </span><span style="color:#f92672;">while</span><span>(te) {
+</span><span>    </span><span style="color:#75715e;">// 删除id为-1的事件
+</span><span>    </span><span style="color:#f92672;">if </span><span>(te-&gt;id </span><span style="color:#f92672;">==</span><span> AE_DELETED_EVENT_ID) {
+</span><span>      zfree(te); </span><span style="color:#f92672;">continue</span><span>;
+</span><span>    }
+</span><span>    </span><span style="color:#75715e;">// 判断触发时间
+</span><span>    </span><span style="color:#f92672;">if </span><span>(te-&gt;when </span><span style="color:#f92672;">&lt;=</span><span> now) {
+</span><span>      </span><span style="color:#75715e;">// 事件就绪执行操作
+</span><span>      retval </span><span style="color:#f92672;">=</span><span> te-&gt;timeProc(eventLoop, id, te-&gt;clientData);
+</span><span>      </span><span style="color:#75715e;">// 返回非0代表下次执行的间隔时间
+</span><span>      </span><span style="color:#f92672;">if </span><span>(retval </span><span style="color:#f92672;">!=</span><span> AE_NOMORE) {
+</span><span>        te-&gt;when </span><span style="color:#f92672;">=</span><span> now </span><span style="color:#f92672;">+</span><span> retval </span><span style="color:#f92672;">* </span><span style="color:#ae81ff;">1000</span><span>;
+</span><span>      } </span><span style="color:#f92672;">else </span><span>{
+</span><span>        </span><span style="color:#75715e;">// 设置id为-1, 下次会清除事件
+</span><span>        te-&gt;id </span><span style="color:#f92672;">=</span><span> AE_DELETED_EVENT_ID;
+</span><span>      }
+</span><span>    }
+</span><span>    te </span><span style="color:#f92672;">=</span><span> te-&gt;next;
+</span><span>  }
+</span><span>  </span><span style="color:#f92672;">return</span><span> processed;
+</span><span>}
+</span></code></pre>
+<p><code>processTimeEvents</code>处理时间事件, 遍历时间事件链表, 如果id被标记为删除(-1)了, 就从链表里删除这个事件. 接着比较触发时间和当前时间, 如果满足触发条件, 就调用事件的处理函数<code>timeProc</code>. 处理函数的返回值如果是0, 表示这个事件不需要了, 就会把id置为-1下次删除; 如果不是0, 表示这个事件需要保留, 返回的值就是下次触发的间隔时间. 周期任务<code>serverCron</code>的返回值就是<code>1000/server.hz</code>.</p>
+<h4 id="3-epolldiao-yong-de-feng-zhuang">3. epoll调用的封装</h4>
+<pre data-lang="c" style="background-color:#272822;color:#f8f8f2;" class="language-c "><code class="language-c" data-lang="c"><span style="color:#f92672;">static </span><span style="font-style:italic;color:#66d9ef;">int </span><span style="color:#a6e22e;">aeApiPoll</span><span>(aeEventLoop </span><span style="color:#f92672;">*</span><span style="font-style:italic;color:#fd971f;">eventLoop</span><span>, </span><span style="font-style:italic;color:#66d9ef;">struct</span><span> timeval </span><span style="color:#f92672;">*</span><span style="font-style:italic;color:#fd971f;">tvp</span><span>) {
+</span><span>  </span><span style="font-style:italic;color:#66d9ef;">int</span><span> retval, numevents </span><span style="color:#f92672;">= </span><span style="color:#ae81ff;">0</span><span>;
+</span><span>  </span><span style="color:#75715e;">// 调用系统调用epoll_wait
+</span><span>  retval </span><span style="color:#f92672;">= </span><span>epoll_wait(state-&gt;epfd, state-&gt;events, eventLoop-&gt;setsize, tvp </span><span style="color:#f92672;">? </span><span>(tvp-&gt;tv_sec</span><span style="color:#f92672;">*</span><span style="color:#ae81ff;">1000 </span><span style="color:#f92672;">+ </span><span>(tvp-&gt;tv_usec </span><span style="color:#f92672;">+ </span><span style="color:#ae81ff;">999</span><span>)</span><span style="color:#f92672;">/</span><span style="color:#ae81ff;">1000</span><span>) </span><span style="color:#f92672;">: -</span><span style="color:#ae81ff;">1</span><span>);
+</span><span>  </span><span style="color:#f92672;">if </span><span>(retval </span><span style="color:#f92672;">&gt; </span><span style="color:#ae81ff;">0</span><span>) {
+</span><span>    </span><span style="color:#75715e;">// 遍历系统返回的就绪事件
+</span><span>    </span><span style="color:#f92672;">for </span><span>(j </span><span style="color:#f92672;">= </span><span style="color:#ae81ff;">0</span><span>; j </span><span style="color:#f92672;">&lt;</span><span> numevents; j</span><span style="color:#f92672;">++</span><span>) {
+</span><span>      </span><span style="font-style:italic;color:#66d9ef;">struct</span><span> epoll_event </span><span style="color:#f92672;">*</span><span>e </span><span style="color:#f92672;">=</span><span> state-&gt;events</span><span style="color:#f92672;">+</span><span>j;
+</span><span>      </span><span style="color:#f92672;">if </span><span>(e-&gt;events </span><span style="color:#f92672;">&amp;</span><span> EPOLLIN) mask </span><span style="color:#f92672;">|=</span><span> AE_READABLE;
+</span><span>      </span><span style="color:#f92672;">if </span><span>(e-&gt;events </span><span style="color:#f92672;">&amp;</span><span> EPOLLOUT) mask </span><span style="color:#f92672;">|=</span><span> AE_WRITABLE;
+</span><span>      </span><span style="color:#f92672;">if </span><span>(e-&gt;events </span><span style="color:#f92672;">&amp;</span><span> EPOLLERR) mask </span><span style="color:#f92672;">|=</span><span> AE_WRITABLE</span><span style="color:#f92672;">|</span><span>AE_READABLE;
+</span><span>      </span><span style="color:#f92672;">if </span><span>(e-&gt;events </span><span style="color:#f92672;">&amp;</span><span> EPOLLHUP) mask </span><span style="color:#f92672;">|=</span><span> AE_WRITABLE</span><span style="color:#f92672;">|</span><span>AE_READABLE;
+</span><span>      </span><span style="color:#75715e;">// 设置就绪事件fd
+</span><span>      eventLoop-&gt;fired[j].fd </span><span style="color:#f92672;">=</span><span> e-&gt;data.fd;
+</span><span>      </span><span style="color:#75715e;">// 设置就绪事件标记
+</span><span>      eventLoop-&gt;fired[j].mask </span><span style="color:#f92672;">=</span><span> mask;
+</span><span>  }
+</span><span>  </span><span style="color:#f92672;">return</span><span> numevents;
+</span><span>}
+</span></code></pre>
+<p><code>aeApiPoll</code>是对系统提供的多路复用IO的封装, 不同的操作系统下有不同的实现, 在Linux下主要是epoll. <code>aeApiPoll</code>的作用就是询问操作系统哪些事件就绪了, 然后把这些就绪事件写入到就绪事件数组<code>fired</code>中,接着<code>aeProcessEvents</code>就可以处理就绪的事件.</p>
+<h4 id="4-chuang-jian-wen-jian-shi-jian-he-shi-jian-shi-jian">4. 创建文件事件和事件事件</h4>
+<pre data-lang="c" style="background-color:#272822;color:#f8f8f2;" class="language-c "><code class="language-c" data-lang="c"><span style="font-style:italic;color:#66d9ef;">long long </span><span style="color:#a6e22e;">aeCreateTimeEvent</span><span>(aeEventLoop </span><span style="color:#f92672;">*</span><span style="font-style:italic;color:#fd971f;">eventLoop</span><span>, </span><span style="font-style:italic;color:#66d9ef;">long long </span><span style="font-style:italic;color:#fd971f;">milliseconds</span><span>, aeTimeProc </span><span style="color:#f92672;">*</span><span style="font-style:italic;color:#fd971f;">proc</span><span>, </span><span style="font-style:italic;color:#66d9ef;">void </span><span style="color:#f92672;">*</span><span style="font-style:italic;color:#fd971f;">clientData</span><span>, aeEventFinalizerProc </span><span style="color:#f92672;">*</span><span style="font-style:italic;color:#fd971f;">finalizerProc</span><span>) {
+</span><span>  </span><span style="color:#75715e;">// 事件id自增
+</span><span>  </span><span style="font-style:italic;color:#66d9ef;">long long</span><span> id </span><span style="color:#f92672;">=</span><span> eventLoop-&gt;timeEventNextId</span><span style="color:#f92672;">++</span><span>;
+</span><span>  te </span><span style="color:#f92672;">= </span><span>zmalloc(</span><span style="color:#f92672;">sizeof</span><span>(</span><span style="color:#f92672;">*</span><span>te));
+</span><span>  te-&gt;id </span><span style="color:#f92672;">=</span><span> id;
+</span><span>  </span><span style="color:#75715e;">// 计算触发时间
+</span><span>  te-&gt;when </span><span style="color:#f92672;">= </span><span>getMonotonicUs() </span><span style="color:#f92672;">+</span><span> milliseconds </span><span style="color:#f92672;">* </span><span style="color:#ae81ff;">1000</span><span>;
+</span><span>  te-&gt;timeProc </span><span style="color:#f92672;">=</span><span> proc;
+</span><span>  </span><span style="color:#75715e;">// 调整链表指针
+</span><span>  te-&gt;next </span><span style="color:#f92672;">=</span><span> eventLoop-&gt;timeEventHead;
+</span><span>  te-&gt;refcount </span><span style="color:#f92672;">= </span><span style="color:#ae81ff;">0</span><span>;
+</span><span>  </span><span style="color:#f92672;">if </span><span>(te-&gt;next)
+</span><span>    te-&gt;next-&gt;prev </span><span style="color:#f92672;">=</span><span> te;
+</span><span>  eventLoop-&gt;timeEventHead </span><span style="color:#f92672;">=</span><span> te;
+</span><span>  </span><span style="color:#f92672;">return</span><span> id;
+</span><span>}
+</span><span>
+</span><span style="font-style:italic;color:#66d9ef;">int </span><span style="color:#a6e22e;">aeCreateFileEvent</span><span>(aeEventLoop </span><span style="color:#f92672;">*</span><span style="font-style:italic;color:#fd971f;">eventLoop</span><span>, </span><span style="font-style:italic;color:#66d9ef;">int </span><span style="font-style:italic;color:#fd971f;">fd</span><span>, </span><span style="font-style:italic;color:#66d9ef;">int </span><span style="font-style:italic;color:#fd971f;">mask</span><span>, aeFileProc </span><span style="color:#f92672;">*</span><span style="font-style:italic;color:#fd971f;">proc</span><span>, </span><span style="font-style:italic;color:#66d9ef;">void </span><span style="color:#f92672;">*</span><span style="font-style:italic;color:#fd971f;">clientData</span><span>) {
+</span><span>  </span><span style="color:#75715e;">// 超过最大文件数
+</span><span>  </span><span style="color:#f92672;">if </span><span>(fd </span><span style="color:#f92672;">&gt;=</span><span> eventLoop-&gt;setsize) 
+</span><span>    </span><span style="color:#f92672;">return</span><span> AE_ERR;
+</span><span>  aeFileEvent </span><span style="color:#f92672;">*</span><span>fe </span><span style="color:#f92672;">= &amp;</span><span>eventLoop-&gt;events[fd];
+</span><span>  </span><span style="color:#75715e;">// 注册到事件循环中
+</span><span>  </span><span style="color:#f92672;">if </span><span>(aeApiAddEvent(eventLoop, fd, mask) </span><span style="color:#f92672;">== -</span><span style="color:#ae81ff;">1</span><span>)
+</span><span>    </span><span style="color:#f92672;">return</span><span> AE_ERR;
+</span><span>  </span><span style="color:#75715e;">// 设置就绪事件标记
+</span><span>  fe-&gt;mask </span><span style="color:#f92672;">|=</span><span> mask;
+</span><span>  </span><span style="color:#f92672;">if </span><span>(mask </span><span style="color:#f92672;">&amp;</span><span> AE_READABLE) fe-&gt;rfileProc </span><span style="color:#f92672;">=</span><span> proc;
+</span><span>  </span><span style="color:#f92672;">if </span><span>(mask </span><span style="color:#f92672;">&amp;</span><span> AE_WRITABLE) fe-&gt;wfileProc </span><span style="color:#f92672;">=</span><span> proc;
+</span><span>  </span><span style="color:#f92672;">return</span><span> AE_OK;
+</span><span>}
+</span></code></pre>
+<p>创建时间事件的<code>aeCreateTimeEvent</code>和文件事件的<code>aeCreateFileEvent</code>, 代码逻辑清晰易懂, 会创建事件的情况在上面也提到了, 比如客户端连接, 处理请求, 返回结果, 后台定时任务等等.</p>
+<h2 id="zong-jie-xia-redisde-shi-jian-xun-huan">总结下redis的事件循环</h2>
+<ol>
+<li>主函数初始化服务时创建事件循环然后启动, redis服务的核心就是事件循环的执行</li>
+<li>线程阻塞在poll调用上, 等待有文件事件就绪, 或者最早的时间事件就绪(超时参数)</li>
+<li>首先处理就绪的文件事件, 这过程中也可能会产生新的事件, 新事件也注册到poll中</li>
+<li>然后遍历时间事件链表, 清理掉不需要的事件, 再判断触发时间, 执行对应的操作</li>
+<li>判断是否需要停止事件循环, 否则再次回到第2步, 继续阻塞在poll上等待事件就绪</li>
+</ol>
+</br>
+<p><em>-&gt; 如果文章有不足之处或者有改进的建议，可以在<a rel="noopener" target="_blank" href="https://github.com/dlzht/dlzht.github.io/discussions/10">这边</a>告诉我，也可以发送给我的<a href="mailto:dlzht@protonmail.com">邮箱</a></em></p>
+
+        </div>
+
+        
+        <div class="pagination">
+            <!-- <div class="pagination__title"> -->
+                <!-- <span class="pagination__title-h">++</span> -->
+                <!-- <hr /> -->
+            <!-- </div> -->
+            <div class="pagination__buttons">
+                    <span class="button previous">
+                        <a href="https://dlzht.github.io/008-yi-wen-goshi-zen-yao-chu-li-zhan-de/">
+                            <span class="button__icon">←</span>&nbsp;
+                            <span class="button__text">译文: Go是怎么处理栈的</span>
+                        </a>
+                    </span>
+                
+                
+                    <span class="button next">
+                        <a href="https://dlzht.github.io/010-zou-ma-guan-hua-httpku-1/">
+                            <span class="button__text">走马观花http库1</span>&nbsp;
+                            <span class="button__icon">→</span>
+                        </a>
+                    </span>
+                </div>
+        </div>
+    
+    </div>
+
+    </div>
+
+    
+    <footer class="footer">
+        <div class="footer__inner">
+                <div class="copyright copyright--user">Email:&nbsp;<a href=mailto:dlzht@protonmail.com>dlzht@protonmail.com</a></div>
+            </div>
+    </footer>
+    
+
+</div>
+</body>
+
+</html>

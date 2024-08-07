@@ -1,0 +1,418 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <script async src="https://www.googletagmanager.com/gtag/js?id=G-Q8CTC2C6DM"></script>
+    <script>
+        window.dataLayer = window.dataLayer || [];
+        function gtag(){dataLayer.push(arguments);}
+        gtag('js', new Date());
+        gtag('config', 'G-Q8CTC2C6DM');
+    </script>
+
+    <title></title>
+    
+    <meta http-equiv="content-type" content="text/html; charset=utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1">
+    <meta name="robots" content="noodp"/>
+
+    <link rel="stylesheet" href="https://dlzht.github.io/style.css">
+    <link rel="stylesheet" href="https://dlzht.github.io/color/blue-light.css">
+
+        <link rel="stylesheet" href="https://dlzht.github.io/color/background_light.css">
+    
+    <link rel="stylesheet" href="https://dlzht.github.io/font-hack-subset.css">
+
+    <meta name="description" content="">
+
+    <meta property="og:description" content="">
+    <meta property="og:title" content="">
+    <meta property="og:type" content="article">
+    <meta property="og:url" content="https://dlzht.github.io/016-tokioshi-jian-lun-jie-gou/">
+
+    <meta name="twitter:card" content="summary_large_image">
+    <meta name="twitter:description" content="">
+    <meta name="twitter:title" content="">
+    <meta property="twitter:domain" content="dlzht.github.io">
+    <meta property="twitter:url" content="https://dlzht.github.io/016-tokioshi-jian-lun-jie-gou/">
+
+    </head>
+
+<body class="">
+<div class="container">
+    
+    <header class="header">
+        <div class="header__inner">
+            <div class="header__logo">
+                    
+                <a href="https://dlzht.github.io" style="text-decoration: none;">
+                    <div class="logo">
+                      
+                            QianQi dlzht@protonmail.com
+                        
+                    </div>
+                </a>
+            </div>
+        </div>
+
+        
+        
+                <nav class="menu">
+            <ul class="menu__inner">
+                <li class="active"><a href="https://dlzht.github.io">主页</a></li>
+            
+                <li><a href="https://dlzht.github.io/tags">标签</a></li>
+            
+                <li><a href="https://dlzht.github.io/about">关于</a></li>
+            
+                <li><a href="https://dlzht.github.io/archive">归档</a></li>
+            </ul>
+        </nav>
+    
+    
+        
+    </header>
+    
+
+    <div class="content">
+        
+    <div class="post">
+        
+    <h1 class="post-title"><a href="https://dlzht.github.io/016-tokioshi-jian-lun-jie-gou/">Tokio的时间轮结构</a></h1>
+    <div class="post-meta-inline">
+        
+    <span class="post-date">
+            2024-08-05
+        </span>
+
+    </div>
+
+    
+        <span class="post-tags-inline">
+                :: tags:&nbsp;
+                <a class="post-tag" href="https://dlzht.github.io/tags/rust/">#Rust</a>&nbsp;
+                <a class="post-tag" href="https://dlzht.github.io/tags/tokio/">#Tokio</a>&nbsp;
+                <a class="post-tag" href="https://dlzht.github.io/tags/lib/">#lib</a></span>
+    
+
+        <div class="post-content">
+            <p>时间轮是<code>tokio</code>里处理时间事件的&quot;相关部门&quot;, 这篇文章的内容主要是时间事件是什么样的, 时间轮是怎么运作的, 以及, 时间轮和运行时是怎么协作. </p>
+<span id="continue-reading"></span><h2 id="1-shi-jian-shi-jian-he-shi-jian-lun">1. 时间事件和时间轮</h2>
+<h3 id="1-1-you-na-xie-shi-jian-shi-jian">1.1 有哪些时间事件</h3>
+<p>粗略点说, 时间事件就是到某个时刻要执行什么操作, <code>tokio::time</code>下提供了三种主要类型, 休眠事件<code>Sleep</code>, 超时事件<code>Timeout</code>和周期事件<code>Interval</code>.</p>
+<p>休眠事件就是, 到某个时刻, 继续做之前的事; 超时事件就是, 到某个时刻, 如果有件事还没做完, 就取消不做了; 周期事件就是, 到某个时刻, 开始做事, 并且设定在下一个时刻, 还做这件事.</p>
+<pre data-lang="rust" style="background-color:#272822;color:#f8f8f2;" class="language-rust "><code class="language-rust" data-lang="rust"><span style="color:#75715e;">// 休眠事件
+</span><span style="color:#f92672;">pub </span><span style="font-style:italic;color:#66d9ef;">struct </span><span>Sleep {
+</span><span>  entry: TimerEntry,
+</span><span>}
+</span><span>
+</span><span style="color:#75715e;">// 超时事件
+</span><span style="color:#f92672;">pub </span><span style="font-style:italic;color:#66d9ef;">struct </span><span>Timeout&lt;T&gt; {
+</span><span>  value: T,
+</span><span>  delay: Sleep,
+</span><span>}
+</span><span>
+</span><span style="color:#75715e;">// 周期事件
+</span><span style="color:#f92672;">pub </span><span style="font-style:italic;color:#66d9ef;">struct </span><span>Interval {
+</span><span>  delay: Pin&lt;</span><span style="font-style:italic;color:#66d9ef;">Box</span><span>&lt;Sleep&gt;&gt;,
+</span><span>  period: Duration,
+</span><span>}
+</span></code></pre>
+<p>可以看到, 超时<code>Timeout</code>和周期<code>Interval</code>都是借助休眠事件<code>Sleep</code>实现的, 而<code>Sleep</code>里的<code>TimeEntry</code>差不多就是时间轮里处理的时间事件了.</p>
+<pre data-lang="rust" style="background-color:#272822;color:#f8f8f2;" class="language-rust "><code class="language-rust" data-lang="rust"><span style="color:#75715e;">// 休眠Sleep里的数据类型
+</span><span style="color:#f92672;">pub</span><span>(</span><span style="color:#f92672;">crate</span><span>) </span><span style="font-style:italic;color:#66d9ef;">struct </span><span>TimerEntry {
+</span><span>  inner: StdUnsafeCell&lt;</span><span style="font-style:italic;color:#66d9ef;">Option</span><span>&lt;TimerShared&gt;&gt;,
+</span><span>  </span><span style="color:#75715e;">// 触发时间
+</span><span>  deadline: Instant,
+</span><span>  registered: </span><span style="font-style:italic;color:#66d9ef;">bool</span><span>,
+</span><span>}
+</span><span>
+</span><span style="color:#75715e;">// 时间轮操作的数据类型
+</span><span style="color:#f92672;">pub</span><span>(</span><span style="color:#f92672;">crate</span><span>) </span><span style="font-style:italic;color:#66d9ef;">struct </span><span>TimerHandle {
+</span><span>  inner: NonNull&lt;TimerShared&gt;,
+</span><span>}
+</span><span>
+</span><span style="color:#75715e;">// 两者共同的部分
+</span><span style="color:#f92672;">pub</span><span>(</span><span style="color:#f92672;">crate</span><span>) </span><span style="font-style:italic;color:#66d9ef;">struct </span><span>TimerShared {
+</span><span>  shard_id: </span><span style="font-style:italic;color:#66d9ef;">u32</span><span>,
+</span><span>  cached_when: AtomicU64,
+</span><span>  state: StateCell,
+</span><span>}
+</span><span>
+</span><span style="color:#f92672;">pub</span><span>(</span><span style="color:#f92672;">super</span><span>) </span><span style="font-style:italic;color:#66d9ef;">struct </span><span>StateCell {
+</span><span>  state: AtomicU64,
+</span><span>  result: UnsafeCell&lt;TimerResult&gt;,
+</span><span>  </span><span style="color:#75715e;">// 唤醒Future
+</span><span>  waker: AtomicWaker,
+</span><span>}
+</span></code></pre>
+<p>把上面的代码&quot;小事化了&quot;下, 时间事件差不多可以写成<code>(when, waker)</code>, <code>when</code>表示在哪个时刻触发, 而<code>waker</code>用来唤醒<code>Future</code>, 表示要执行的操作是什么.</p>
+<h3 id="1-2-shi-jian-lun-shi-shi-yao">1.2 时间轮是什么</h3>
+<p>系统中可能存在很多的时间事件, 比如web服务器, 对TCP连接加一个读超时的话, n个连接就至少有n个时间事件, 而管理这些时间事件会面临下面几点挑战:</p>
+<ul>
+<li>事件的创建和终止都无法预测, 需要有新增和删除的能力</li>
+<li>最近的事件总是会被最先触发, 所以还要提供排序的能力</li>
+<li>事件的触发时刻是不确定的, 不能简单预设在某一范围内</li>
+<li>一共有多少事件, 事件是的分布如何, 这些也无法预测</li>
+</ul>
+<p>时间轮就是管理时间事件的一种数据结构(算法), 之所以叫这个名称, 大概是因为时间轮的实现中, 通常会把时间按不同的单位(跨度)划分, 有点类似于钟表(时分秒), 或者咬合滚动的齿轮.</p>
+
+  
+  
+    
+    
+  
+  <img src="https://dlzht.github.io/image/016_01.png" alt="image 404" class="center" decoding="async" loading="lazy"/>
+
+<p>上图是仿着钟表画的时间轮示意图, 如果事件在2触发, 就放到第二个绿色格里; 如果事件在65触发, 就放到第一个黄色格里. 1个黄色格, 等于60个绿色格, 进制是60.</p>
+<p>为了后面方便说明, 这里我们暂且把格叫做槽位, 而把相同颜色的一组格叫做槽级, 把格的区间长度叫做槽级的精度, 把槽级的区间长度叫做跨度(如果有更好的名称, 还请麻烦告知我~).</p>
+<h2 id="2-shi-jian-lun-de-shu-ju-jie-gou">2. 时间轮的数据结构</h2>
+<pre data-lang="rust" style="background-color:#272822;color:#f8f8f2;" class="language-rust "><code class="language-rust" data-lang="rust"><span style="color:#f92672;">pub</span><span>(</span><span style="color:#f92672;">crate</span><span>) </span><span style="font-style:italic;color:#66d9ef;">struct </span><span>Wheel {
+</span><span>  </span><span style="color:#75715e;">// 时间轮从启动开始经历的毫秒数
+</span><span>  elapsed: </span><span style="font-style:italic;color:#66d9ef;">u64</span><span>,
+</span><span>  </span><span style="color:#75715e;">// 6个槽级, 每级64个槽位
+</span><span>  levels: </span><span style="font-style:italic;color:#66d9ef;">Box</span><span>&lt;[Level; </span><span style="color:#ae81ff;">6</span><span>]&gt;,
+</span><span>  </span><span style="color:#75715e;">// 就绪事件链表
+</span><span>  pending: EntryList,
+</span><span>}
+</span><span>
+</span><span style="color:#f92672;">pub</span><span>(</span><span style="color:#f92672;">crate</span><span>) </span><span style="font-style:italic;color:#66d9ef;">struct </span><span>Level {
+</span><span>  </span><span style="color:#75715e;">// 当前槽级是什么, 0~5
+</span><span>  level: </span><span style="font-style:italic;color:#66d9ef;">usize</span><span>,
+</span><span>  </span><span style="color:#75715e;">// 位图, 表示槽位里是否有事件
+</span><span>  occupied: </span><span style="font-style:italic;color:#66d9ef;">u64</span><span>,
+</span><span>  </span><span style="color:#75715e;">// 槽位数组,  槽位里是事件链表
+</span><span>  slot: [EntryList; 64],
+</span><span>}
+</span></code></pre>
+<p><code>tokio</code>时间轮的实现在<a rel="noopener" target="_blank" href="https://github.com/tokio-rs/tokio/blob/tokio-1.38.x/tokio/src/runtime/time/wheel/mod.rs">Wheel</a>, 结构本身不复杂只有三个字段, <code>elapsed</code>表示从时间轮启动开始, 一共经历的毫秒数, 在时间轮推动(poll)时会被更新; <code>levels</code>表示不同时间跨度的槽级, 这里一共有6级, 相邻槽级的时间跨度是64倍关系; <code>pending</code>是就绪事件的链表, 在时间轮被推动时, 就绪的事件先会放到这个链表中.</p>
+<p><code>Level</code>是表示槽级的数据结构, 其中字段<code>level</code>表示当前的槽是哪一级(0~5), 可以用来计算这一级的精度(64<sup>level</sup>)和跨度(64<sup>level+1</sup>); <code>solt</code>是槽位数组, 每个槽级都有的64个槽位; <code>slot</code>是位图, 如果第n位是1, 表示第n个槽位里有事件, 用来优化查找.</p>
+
+  
+  
+    
+    
+  
+  <img src="https://dlzht.github.io/image/016_02.png" alt="image 404" class="center" decoding="async" loading="lazy"/>
+
+<p>第一个槽级的时间精度是1(64<sup>0</sup>)ms, 跨度是0~63, 触发时间在[0, 64)的事件会放到第一个槽级. 触发时间在5的事件, 会放到第6(数组下标5)个槽位里. 第二个槽级的精度是64(64<sup>1</sup>)ms, 跨度是[~~0~~64, 64<sup>2</sup>), 触发时间在100的事件, 会放到第二槽级的第2个槽位.</p>
+<p>上面的1毫秒, 64倍, 6个级这些数字, 是目前代码里的&quot;合理设定&quot;. 1毫秒这个精度是和事件通知机制(比如Linux下epoll的timeout参数)有关, <a rel="noopener" target="_blank" href="https://docs.rs/mio/1.0.1/mio/struct.Poll.html#method.poll">mio</a>的时间精度通常是1毫秒, 进一步把时间细分下去意义也不大. </p>
+<p>64倍是为了更快的位运算, 因为64 = 2<sup>6</sup>, 下面的方法里会看见相关的代码. 而6个级这个数, 因为64<sup>6</sup>毫秒大约是2年, 达到年这个单位, 也差不多&quot;够意思&quot;了. 这也是槽位数量和&quot;拥挤&quot;程度之间的一个权衡, 当然, 超过64<sup>6</sup>这种事件, 会放在最后一个槽位里.</p>
+<h2 id="3-shi-jian-lun-de-dui-wai-jie-kou">3. 时间轮的对外接口</h2>
+<p><code>Wheel</code>对外的接口主要有4个, 新增事件, 删除事件, 推动时间轮和查询最近的时间. 下面的代码忽略了&quot;不那么重要&quot;的部分, 比如<code>unsafe</code>, <code>assert</code>, 一些分支判断等, 只展示主要的逻辑.</p>
+<h3 id="3-1-xin-zeng-shi-jian">3.1 新增事件</h3>
+<pre data-lang="rust" style="background-color:#272822;color:#f8f8f2;" class="language-rust "><code class="language-rust" data-lang="rust"><span style="color:#f92672;">pub</span><span>(</span><span style="color:#f92672;">crate</span><span>) </span><span style="font-style:italic;color:#66d9ef;">fn </span><span style="color:#a6e22e;">insert</span><span>(</span><span style="color:#f92672;">&amp;mut </span><span style="font-style:italic;color:#fd971f;">self</span><span>, </span><span style="font-style:italic;color:#fd971f;">item</span><span>: TimerHandle) -&gt; </span><span style="font-style:italic;color:#66d9ef;">Result</span><span>&lt;</span><span style="font-style:italic;color:#66d9ef;">u64</span><span>, (TimerHandle, InsertError)&gt; {
+</span><span>  </span><span style="color:#75715e;">// when 是事件触发的时刻
+</span><span>  </span><span style="font-style:italic;color:#66d9ef;">let</span><span> when </span><span style="color:#f92672;">=</span><span> item.</span><span style="color:#66d9ef;">sync_when</span><span>();
+</span><span>  </span><span style="color:#75715e;">// 计算放到哪个槽级
+</span><span>  </span><span style="font-style:italic;color:#66d9ef;">let</span><span> level </span><span style="color:#f92672;">= </span><span>self.</span><span style="color:#66d9ef;">level_for</span><span>(when);
+</span><span>  </span><span style="color:#75715e;">// 放到对应的槽级里
+</span><span>  self.levels[level].</span><span style="color:#66d9ef;">add_entry</span><span>(item);
+</span><span>  </span><span style="font-style:italic;color:#66d9ef;">Ok</span><span>(when)
+</span><span>}
+</span></code></pre>
+<p>新增事件的方法是<code>insert</code>, 首先根据事件要触发的时刻, 计算要放到哪个槽级, 然后再调用对应槽级的<code>add_entry</code>方法放到槽位里.</p>
+<pre data-lang="rust" style="background-color:#272822;color:#f8f8f2;" class="language-rust "><code class="language-rust" data-lang="rust"><span style="color:#75715e;">// ...  000000 000000 000001 000001   65
+</span><span style="color:#75715e;">//      \____/ \____/ \____/ \____/
+</span><span style="color:#75715e;">//         |      |      |      |
+</span><span style="color:#75715e;">//       第3组   第2组   第1组   第0组
+</span><span style="font-style:italic;color:#66d9ef;">fn </span><span style="color:#a6e22e;">level_for</span><span>(</span><span style="font-style:italic;color:#fd971f;">elapsed</span><span>: </span><span style="font-style:italic;color:#66d9ef;">u64</span><span>, </span><span style="font-style:italic;color:#fd971f;">when</span><span>: </span><span style="font-style:italic;color:#66d9ef;">u64</span><span>) -&gt; </span><span style="font-style:italic;color:#66d9ef;">usize </span><span>{
+</span><span>  </span><span style="font-style:italic;color:#66d9ef;">const </span><span style="color:#ae81ff;">SLOT_MASK</span><span>: </span><span style="font-style:italic;color:#66d9ef;">u64 </span><span style="color:#f92672;">= </span><span>(</span><span style="color:#ae81ff;">1 </span><span style="color:#f92672;">&lt;&lt; </span><span style="color:#ae81ff;">6</span><span>) </span><span style="color:#f92672;">- </span><span style="color:#ae81ff;">1</span><span>;
+</span><span>  </span><span style="font-style:italic;color:#66d9ef;">let </span><span style="color:#f92672;">mut</span><span> masked </span><span style="color:#f92672;">=</span><span> elapsed </span><span style="color:#f92672;">^</span><span> when </span><span style="color:#f92672;">| </span><span style="color:#ae81ff;">SLOT_MASK</span><span>;
+</span><span>  </span><span style="color:#75715e;">// 计算最右侧的1在什么位置
+</span><span>  </span><span style="font-style:italic;color:#66d9ef;">let</span><span> leading_zeros </span><span style="color:#f92672;">=</span><span> masked.</span><span style="color:#66d9ef;">leading_zeros</span><span>() </span><span style="color:#f92672;">as </span><span style="font-style:italic;color:#66d9ef;">usize</span><span>;
+</span><span>  </span><span style="font-style:italic;color:#66d9ef;">let</span><span> significant </span><span style="color:#f92672;">= </span><span style="color:#ae81ff;">63 </span><span style="color:#f92672;">-</span><span> leading_zeros;
+</span><span>  </span><span style="color:#75715e;">// 最右侧的1在第几个组里
+</span><span>  significant </span><span style="color:#f92672;">/ </span><span style="color:#ae81ff;">6 
+</span><span>}
+</span></code></pre>
+<p>计算放到哪个槽级的方法是<code>level_for</code>, 这里就能看到64倍这个&quot;设定&quot;大显身手了. 入参<code>elapsed</code>是时间轮上的那个毫秒, 入参<code>when</code>是事件触发的时间, <code>elapsed ^ when</code>是<code>when - elapsed</code>的&quot;简化&quot;, 两者之差的最右侧1会保留下来.</p>
+<p>因为槽级之间是64(2<sup>6</sup>)倍的关系, 所以决定事件放到哪个槽级的, 就是最右侧的1在什么位置. 数下前置0的数量, 反推最右侧1的位置, 然后从左边开始6位一组, 这个1在第n组, 事件就放在第n级. 因为64(2的次方)的关系, 槽级的查找能直接用位运算来完成(方便计算机运算, 却不一定方便人理解-^-).</p>
+<pre data-lang="rust" style="background-color:#272822;color:#f8f8f2;" class="language-rust "><code class="language-rust" data-lang="rust"><span style="color:#f92672;">pub</span><span>(</span><span style="color:#f92672;">crate</span><span>) </span><span style="font-style:italic;color:#66d9ef;">fn </span><span style="color:#a6e22e;">add_entry</span><span>(</span><span style="color:#f92672;">&amp;mut </span><span style="font-style:italic;color:#fd971f;">self</span><span>, </span><span style="font-style:italic;color:#fd971f;">item</span><span>: TimerHandle) {
+</span><span>  </span><span style="color:#75715e;">// 计算对应的槽位
+</span><span>  </span><span style="font-style:italic;color:#66d9ef;">let</span><span> slot </span><span style="color:#f92672;">= </span><span style="color:#66d9ef;">slot_for</span><span>(item.</span><span style="color:#66d9ef;">cached_when</span><span>(), self.level);
+</span><span>  </span><span style="color:#75715e;">// 放入事件链表
+</span><span>  self.slot[slot].</span><span style="color:#66d9ef;">push_front</span><span>(item);
+</span><span>  </span><span style="color:#75715e;">// 位图上置为1
+</span><span>  self.occupied </span><span style="color:#f92672;">|= </span><span style="color:#66d9ef;">occupied_bit</span><span>(slot);
+</span><span>}
+</span><span>
+</span><span style="color:#75715e;">// ...  000000 000000 000001 000001   65
+</span><span style="color:#75715e;">//      \____/ \____/ \____/ \____/
+</span><span style="color:#75715e;">//                       |       
+</span><span style="color:#75715e;">//                      槽位
+</span><span style="font-style:italic;color:#66d9ef;">fn </span><span style="color:#a6e22e;">slot_for</span><span>(</span><span style="font-style:italic;color:#fd971f;">duration</span><span>: </span><span style="font-style:italic;color:#66d9ef;">u64</span><span>, </span><span style="font-style:italic;color:#fd971f;">level</span><span>: </span><span style="font-style:italic;color:#66d9ef;">usize</span><span>) -&gt; </span><span style="font-style:italic;color:#66d9ef;">usize </span><span>{
+</span><span>    ((duration </span><span style="color:#f92672;">&gt;&gt; </span><span>(level </span><span style="color:#f92672;">* </span><span style="color:#ae81ff;">6</span><span>)) </span><span style="color:#f92672;">% </span><span style="color:#ae81ff;">64</span><span>) </span><span style="color:#f92672;">as </span><span style="font-style:italic;color:#66d9ef;">usize
+</span><span>}
+</span></code></pre>
+<p>接下来是计算放到哪个槽位的方法<code>slot_for</code>, 如果放入的是槽级1(从0开始), 那最后6位就可以忽略; 如果放入的是槽级2, 那最后12位就可以忽略. 这样类推到最后, 其实最终剩下的那组, 也就是最右侧1所在的那组, 就是需要放入的槽位的下标了.</p>
+<p>槽位的计算也是得益于2次方的倍数关系, 如上找到需要放入的槽位后, 就把事件放入到这个槽位的事件链表里, 位图上的对应位也置为1, 到此, 新增事件的过程就全部完成了.</p>
+<h3 id="3-2-shan-chu-shi-jian">3.2 删除事件</h3>
+<pre data-lang="rust" style="background-color:#272822;color:#f8f8f2;" class="language-rust "><code class="language-rust" data-lang="rust"><span style="color:#f92672;">pub</span><span>(</span><span style="color:#f92672;">crate</span><span>) </span><span style="font-style:italic;color:#66d9ef;">fn </span><span style="color:#a6e22e;">remove</span><span>(</span><span style="color:#f92672;">&amp;mut </span><span style="font-style:italic;color:#fd971f;">self</span><span>, </span><span style="font-style:italic;color:#fd971f;">item</span><span>: NonNull&lt;TimerShared&gt;) {
+</span><span>  </span><span style="font-style:italic;color:#66d9ef;">let</span><span> when </span><span style="color:#f92672;">=</span><span> item.</span><span style="color:#66d9ef;">as_ref</span><span>().</span><span style="color:#66d9ef;">cached_when</span><span>();
+</span><span>  </span><span style="color:#75715e;">// 计算到哪个槽级里找
+</span><span>  </span><span style="font-style:italic;color:#66d9ef;">let</span><span> level </span><span style="color:#f92672;">= </span><span>self.</span><span style="color:#66d9ef;">level_for</span><span>(when);
+</span><span>  </span><span style="color:#75715e;">// 从对应的槽级里删除
+</span><span>  self.levels[level].</span><span style="color:#66d9ef;">remove_entry</span><span>(item);
+</span><span>}
+</span><span>
+</span><span style="color:#f92672;">pub</span><span>(</span><span style="color:#f92672;">crate</span><span>) </span><span style="font-style:italic;color:#66d9ef;">fn </span><span style="color:#a6e22e;">remove_entry</span><span>(</span><span style="color:#f92672;">&amp;mut </span><span style="font-style:italic;color:#fd971f;">self</span><span>, </span><span style="font-style:italic;color:#fd971f;">item</span><span>: NonNull&lt;TimerShared&gt;) {
+</span><span>  </span><span style="color:#75715e;">// 计算对应的槽位
+</span><span>  </span><span style="font-style:italic;color:#66d9ef;">let</span><span> slot </span><span style="color:#f92672;">= </span><span style="color:#66d9ef;">slot_for</span><span>(</span><span style="color:#f92672;">unsafe </span><span>{ item.</span><span style="color:#66d9ef;">as_ref</span><span>().</span><span style="color:#66d9ef;">cached_when</span><span>() }, self.level);
+</span><span>  </span><span style="color:#75715e;">// 从事件链表里删除
+</span><span>  </span><span style="color:#f92672;">unsafe </span><span>{ self.slot[slot].</span><span style="color:#66d9ef;">remove</span><span>(item) };
+</span><span>  </span><span style="color:#f92672;">if </span><span>self.slot[slot].</span><span style="color:#66d9ef;">is_empty</span><span>() {
+</span><span>      </span><span style="color:#75715e;">// 槽位里如果已经没有事件了, 置0  
+</span><span>      self.occupied </span><span style="color:#f92672;">^= </span><span style="color:#66d9ef;">occupied_bit</span><span>(slot);
+</span><span>  }
+</span><span>}
+</span></code></pre>
+<p>删除事件的方法是<code>remove</code>, 对于给定的事件, 触发时刻是<code>when</code>, &quot;寻址&quot;的过程和<code>insert</code>方法里是一样的. 找到对应槽位的事件链表后, 再调用链表的<code>remove</code>方法删除事件.</p>
+<h3 id="3-3-tui-dong-shi-jian-lun">3.3 推动时间轮</h3>
+<pre data-lang="rust" style="background-color:#272822;color:#f8f8f2;" class="language-rust "><code class="language-rust" data-lang="rust"><span style="color:#f92672;">pub</span><span>(</span><span style="color:#f92672;">crate</span><span>) </span><span style="font-style:italic;color:#66d9ef;">fn </span><span style="color:#a6e22e;">poll</span><span>(</span><span style="color:#f92672;">&amp;mut </span><span style="font-style:italic;color:#fd971f;">self</span><span>, </span><span style="font-style:italic;color:#fd971f;">now</span><span>: </span><span style="font-style:italic;color:#66d9ef;">u64</span><span>) -&gt; </span><span style="font-style:italic;color:#66d9ef;">Option</span><span>&lt;TimerHandle&gt; {
+</span><span>  </span><span style="color:#f92672;">loop </span><span>{
+</span><span>    </span><span style="color:#75715e;">// 先返回就绪事件链表里的事件
+</span><span>    </span><span style="color:#f92672;">if </span><span style="font-style:italic;color:#66d9ef;">let Some</span><span>(handle) </span><span style="color:#f92672;">= </span><span>self.pending.</span><span style="color:#66d9ef;">pop_back</span><span>() {
+</span><span>        </span><span style="color:#f92672;">return </span><span style="font-style:italic;color:#66d9ef;">Some</span><span>(handle);
+</span><span>    }
+</span><span>    </span><span style="color:#75715e;">// 找到最近的槽位
+</span><span>    </span><span style="color:#f92672;">match </span><span>self.</span><span style="color:#66d9ef;">next_expiration</span><span>() {
+</span><span>        </span><span style="font-style:italic;color:#66d9ef;">Some</span><span>(</span><span style="color:#f92672;">ref</span><span> expiration) </span><span style="color:#f92672;">if</span><span> expiration.deadline </span><span style="color:#f92672;">&lt;=</span><span> now </span><span style="color:#f92672;">=&gt; </span><span>{
+</span><span>            </span><span style="color:#75715e;">// 重新处理这个槽位里的事件
+</span><span>            self.</span><span style="color:#66d9ef;">process_expiration</span><span>(expiration);
+</span><span>            </span><span style="color:#75715e;">// 更新时间轮上的毫秒数
+</span><span>            self.</span><span style="color:#66d9ef;">set_elapsed</span><span>(expiration.deadline);
+</span><span>        }
+</span><span>        </span><span style="color:#75715e;">// 没有就绪的事件
+</span><span>        </span><span style="color:#f92672;">_ =&gt; </span><span>{
+</span><span>            self.</span><span style="color:#66d9ef;">set_elapsed</span><span>(now);
+</span><span>            </span><span style="color:#f92672;">break</span><span>;
+</span><span>        }
+</span><span>    }
+</span><span>  }
+</span><span>  self.pending.</span><span style="color:#66d9ef;">pop_back</span><span>()
+</span><span>}
+</span></code></pre>
+<p>推动时间轮的方法是<code>poll</code>, 如果没有就绪的事件, 就返回<code>None</code>, 否则返回一个就绪的事件, 所以如果有多个事件就绪, 需要调用多次<code>poll</code>方法来处理.</p>
+<p>就绪的事件会先放到<code>pending</code>就绪链表里, 所以如果就绪链表里有事件, 就先返回链表里的事件. 如果没有&quot;直接&quot;就绪的事件, 再尝试处理最近(时间上最早)槽位里的事件.</p>
+<pre data-lang="rust" style="background-color:#272822;color:#f8f8f2;" class="language-rust "><code class="language-rust" data-lang="rust"><span style="color:#f92672;">pub</span><span>(</span><span style="color:#f92672;">crate</span><span>) </span><span style="font-style:italic;color:#66d9ef;">fn </span><span style="color:#a6e22e;">process_expiration</span><span>(</span><span style="color:#f92672;">&amp;mut </span><span style="font-style:italic;color:#fd971f;">self</span><span>, </span><span style="font-style:italic;color:#fd971f;">expiration</span><span>: </span><span style="color:#f92672;">&amp;</span><span>Expiration) {
+</span><span>  </span><span style="color:#75715e;">// 拿到槽位里的事件链表
+</span><span>  </span><span style="font-style:italic;color:#66d9ef;">let </span><span style="color:#f92672;">mut</span><span> entries </span><span style="color:#f92672;">= </span><span>self.</span><span style="color:#66d9ef;">take_entries</span><span>(expiration);
+</span><span>  </span><span style="color:#f92672;">while </span><span style="font-style:italic;color:#66d9ef;">let Some</span><span>(item) </span><span style="color:#f92672;">=</span><span> entries.</span><span style="color:#66d9ef;">pop_back</span><span>() {
+</span><span>    </span><span style="color:#f92672;">match unsafe </span><span>{ item.</span><span style="color:#66d9ef;">mark_pending</span><span>(expiration.deadline) } {
+</span><span>      </span><span style="color:#75715e;">// 已到触发时间, 放入就绪事件链表
+</span><span>      </span><span style="font-style:italic;color:#66d9ef;">Ok</span><span>(()) </span><span style="color:#f92672;">=&gt; </span><span>{ self.pending.</span><span style="color:#66d9ef;">push_front</span><span>(item); }
+</span><span>      </span><span style="font-style:italic;color:#66d9ef;">Err</span><span>(expiration_tick) </span><span style="color:#f92672;">=&gt; </span><span>{
+</span><span>        </span><span style="color:#75715e;">// 还没到时间的, 重新计算后放入时间轮
+</span><span>        </span><span style="font-style:italic;color:#66d9ef;">let</span><span> level </span><span style="color:#f92672;">= </span><span style="color:#66d9ef;">level_for</span><span>(expiration.deadline, expiration_tick);
+</span><span>        self.levels[level].</span><span style="color:#66d9ef;">add_entry</span><span>(item);
+</span><span>      }
+</span><span>    }
+</span><span>  }
+</span><span>}
+</span></code></pre>
+<p><code>process_expiration</code>方法遍历槽位里的所有事件, 如果事件到了触发时间, 就放到就绪链表, 否则重新计算后放入时间轮, 再次计算的过程就是事件&quot;降级&quot;, 时间轮&quot;转动&quot;的过程.</p>
+<p>比如在0时刻, 新增一个在100触发的事件, 此时事件被放入槽级1的第1(下标)个槽位. 当时刻来到72时再调用<code>poll</code>, 这个事件就会被下放到槽级0里了. 这时候的第0槽级代表的时刻不再是[0, 63), 而是[64, 128). 第0槽级转动了1圈, 第1槽级转动了1格.</p>
+<h3 id="3-4-zui-jin-jiu-xu-shi-jian">3.4 最近就绪时间</h3>
+<pre data-lang="rust" style="background-color:#272822;color:#f8f8f2;" class="language-rust "><code class="language-rust" data-lang="rust"><span style="color:#f92672;">pub</span><span>(</span><span style="color:#f92672;">crate</span><span>) </span><span style="font-style:italic;color:#66d9ef;">fn </span><span style="color:#a6e22e;">poll_at</span><span>(</span><span style="color:#f92672;">&amp;</span><span style="font-style:italic;color:#fd971f;">self</span><span>) -&gt; </span><span style="font-style:italic;color:#66d9ef;">Option</span><span>&lt;</span><span style="font-style:italic;color:#66d9ef;">u64</span><span>&gt; {
+</span><span>  self.</span><span style="color:#66d9ef;">next_expiration</span><span>().</span><span style="color:#66d9ef;">map</span><span>(|</span><span style="font-style:italic;color:#fd971f;">expiration</span><span>| expiration.deadline)
+</span><span>}
+</span><span>
+</span><span style="font-style:italic;color:#66d9ef;">fn </span><span style="color:#a6e22e;">next_expiration</span><span>(</span><span style="color:#f92672;">&amp;</span><span style="font-style:italic;color:#fd971f;">self</span><span>) -&gt; </span><span style="font-style:italic;color:#66d9ef;">Option</span><span>&lt;Expiration&gt; {
+</span><span>  </span><span style="color:#75715e;">// 遍历所有的槽级
+</span><span>  </span><span style="color:#f92672;">for </span><span>(level_num, level) </span><span style="color:#f92672;">in </span><span>self.levels.</span><span style="color:#66d9ef;">iter</span><span>().</span><span style="color:#66d9ef;">enumerate</span><span>() {
+</span><span>    </span><span style="color:#f92672;">if </span><span style="font-style:italic;color:#66d9ef;">let Some</span><span>(expiration) </span><span style="color:#f92672;">=</span><span> level.</span><span style="color:#66d9ef;">next_expiration</span><span>(self.elapsed) {
+</span><span>      </span><span style="color:#f92672;">return </span><span style="font-style:italic;color:#66d9ef;">Some</span><span>(expiration);
+</span><span>    }
+</span><span>  }
+</span><span>  </span><span style="font-style:italic;color:#66d9ef;">None
+</span><span>}
+</span></code></pre>
+<p>查询最近就绪时间方法是<code>poll_at</code>, 这个方法会遍历所有的槽级, 直到找到第一个非空的槽级, 找到里面第一个非空的槽位, 然后算出这个槽位对应的时间.</p>
+<pre data-lang="rust" style="background-color:#272822;color:#f8f8f2;" class="language-rust "><code class="language-rust" data-lang="rust"><span style="color:#f92672;">pub</span><span>(</span><span style="color:#f92672;">crate</span><span>) </span><span style="font-style:italic;color:#66d9ef;">fn </span><span style="color:#a6e22e;">next_expiration</span><span>(</span><span style="color:#f92672;">&amp;</span><span style="font-style:italic;color:#fd971f;">self</span><span>, </span><span style="font-style:italic;color:#fd971f;">now</span><span>: </span><span style="font-style:italic;color:#66d9ef;">u64</span><span>) -&gt; </span><span style="font-style:italic;color:#66d9ef;">Option</span><span>&lt;Expiration&gt; {
+</span><span>  </span><span style="color:#75715e;">// 利用位图找到最近(低位)的非空的槽位
+</span><span>  </span><span style="font-style:italic;color:#66d9ef;">let</span><span> slot </span><span style="color:#f92672;">= </span><span>self.</span><span style="color:#66d9ef;">next_occupied_slot</span><span>(now)</span><span style="color:#f92672;">?</span><span>;
+</span><span>  </span><span style="color:#75715e;">// 槽级的时间跨度, 比如第0级是64
+</span><span>  </span><span style="font-style:italic;color:#66d9ef;">let</span><span> level_range </span><span style="color:#f92672;">= </span><span style="color:#66d9ef;">level_range</span><span>(self.level);
+</span><span>  </span><span style="color:#75715e;">// 槽位的时间跨度, 比如第0级是1
+</span><span>  </span><span style="font-style:italic;color:#66d9ef;">let</span><span> slot_range </span><span style="color:#f92672;">= </span><span style="color:#66d9ef;">slot_range</span><span>(self.level);
+</span><span>  </span><span style="color:#75715e;">// 计算上时间轮的转动, 当前槽级的起始时间
+</span><span>  </span><span style="font-style:italic;color:#66d9ef;">let</span><span> level_start </span><span style="color:#f92672;">=</span><span> now </span><span style="color:#f92672;">&amp; !</span><span>(level_range </span><span style="color:#f92672;">- </span><span style="color:#ae81ff;">1</span><span>);
+</span><span>  </span><span style="color:#75715e;">// 槽位的起始时间
+</span><span>  </span><span style="font-style:italic;color:#66d9ef;">let </span><span style="color:#f92672;">mut</span><span> deadline </span><span style="color:#f92672;">=</span><span> level_start </span><span style="color:#f92672;">+</span><span> slot </span><span style="color:#f92672;">as </span><span style="font-style:italic;color:#66d9ef;">u64 </span><span style="color:#f92672;">*</span><span> slot_range;
+</span><span>  </span><span style="color:#f92672;">if</span><span> deadline </span><span style="color:#f92672;">&lt;=</span><span> now {
+</span><span>      deadline </span><span style="color:#f92672;">+=</span><span> level_range;
+</span><span>  }
+</span><span>  </span><span style="font-style:italic;color:#66d9ef;">Some</span><span>(Expiration { level: self.level, slot, deadline, })
+</span><span>}
+</span></code></pre>
+<p><code>next_expiration</code>计算最近的非空槽位的起始时间, 比较绕的是<code>now &amp; !(level_range - 1)</code>, 这一步里计算了时间轮转动后的时间. </p>
+<p>还是上面推动时间轮里的例子, 72时刻调用的话, 第0槽级的起始时间<code>72 &amp; !(64 - 1)</code>是64. 因为此时第0槽级已经转过了一圈, 表示的时间区间已经是[64, 128). </p>
+<p><code>poll_at</code>找到下次推动时间轮的时间, 这个时间对应的是某个非空槽位的起始时间. 在下次调用<code>poll</code>推动时间轮时, 这个槽位里的事件就会被处理, 加入就绪链表, 或被&quot;降级&quot;. </p>
+<h2 id="4-shi-jian-lun-he-yun-xing-shi-de-guan-xi">4. 时间轮和运行时的关系</h2>
+<pre data-lang="rust" style="background-color:#272822;color:#f8f8f2;" class="language-rust "><code class="language-rust" data-lang="rust"><span style="color:#75715e;">// https://github.com/tokio-rs/tokio/blob/tokio-1.38.x/tokio/src                       
+</span><span style="color:#75715e;">// /runtime/scheduler/current_thread/mod.rs#L687 
+</span><span style="font-style:italic;color:#66d9ef;">fn </span><span style="color:#a6e22e;">Runtime</span><span>::block_on() {
+</span><span>  </span><span style="color:#75715e;">// 和poll_at基本相同
+</span><span>  </span><span style="color:#75715e;">// /runtime/time/mod.rs#L197
+</span><span>  </span><span style="font-style:italic;color:#66d9ef;">let</span><span> timeout </span><span style="color:#f92672;">=</span><span> wheel.</span><span style="color:#66d9ef;">next_expiration_time</span><span>();
+</span><span>  </span><span style="color:#75715e;">// 推动事件循环, 比如epoll
+</span><span>  </span><span style="color:#75715e;">// /runtime/io/driver.rs#L149
+</span><span>  io.</span><span style="color:#66d9ef;">poll</span><span>(events, timeout);
+</span><span>  </span><span style="color:#75715e;">// 遍历就绪事件, 逐个处理
+</span><span>  </span><span style="color:#75715e;">// /runtime/io/driver.rs#L162
+</span><span>  </span><span style="color:#f92672;">for</span><span> event </span><span style="color:#f92672;">in</span><span> events.</span><span style="color:#66d9ef;">iter</span><span>() {
+</span><span>    </span><span style="color:#f92672;">...
+</span><span>  }
+</span><span>}
+</span></code></pre>
+<p>运行时和时间轮怎么协作起来的, 贴源代码的话是在是太多了, 只能发挥下抽象大法了L^L, &quot;神&quot;应该还是八九不离十的. 这边给出的是&quot;单线程&quot;运行时的例子, 对于想要点进源码, 追踪具体实现的同学, 大概&quot;路径&quot;我也贴在注释里了.</p>
+<p>主逻辑并不复杂, 查询时间轮里最近的时间, 然后作为超时参数传给事件循环, 事件循环阻塞在poll上, 最后取出就绪事件, 遍历处理, 准备开始下次循环. 这一套大差不差都这样, <a rel="noopener" target="_blank" href="https://github.com/redis/redis/blob/unstable/src/ae.c#L380">redis的eventloop</a>也是如此.</p>
+<h2 id="xiao-jie">小结</h2>
+<p><code>tokio</code>的代码也是之前看的了, 还向<a rel="noopener" target="_blank" href="https://github.com/ihciah">ihciah</a>同学请教过问题(字节也有运行时的实现<a rel="noopener" target="_blank" href="https://github.com/bytedance/monoio">monoio</a>). 如果有什么地方我理解有误, 或者有哪些可以改进的, 也请大家不吝指出, 感谢!</p>
+<p>最近接触&quot;时间&quot;的内容比较多, 想起<a rel="noopener" target="_blank" href="https://github.com/cloudflare/pingora">pingora</a>里的超时有<code>FastTimeout</code>和<code>TokioTimeout</code>两套, 也是蛮有意思的, 就想着写一下. 写着写着, 发现字好像有的多了, 索性放到后面再写一篇了.</p>
+</br>
+<p><em>-&gt; 如果文章有不足之处或者有改进的建议，可以在<a rel="noopener" target="_blank" href="https://github.com/dlzht/dlzht.github.io/discussions/12">这边</a>告诉我，也可以发送给我的<a href="mailto:dlzht@protonmail.com">邮箱</a></em></p>
+
+        </div>
+
+        
+        <div class="pagination">
+            <!-- <div class="pagination__title"> -->
+                <!-- <span class="pagination__title-h">++</span> -->
+                <!-- <hr /> -->
+            <!-- </div> -->
+            <div class="pagination__buttons">
+                    <span class="button previous">
+                        <a href="https://dlzht.github.io/015-rustshi-jian-ku-jiff/">
+                            <span class="button__icon">←</span>&nbsp;
+                            <span class="button__text">Rust优雅的时间库Jiff</span>
+                        </a>
+                    </span>
+                
+                
+                    <span class="button next">
+                        <a href="https://dlzht.github.io/017-pingorachao-shi-you-hua/">
+                            <span class="button__text">Pingora的超时优化</span>&nbsp;
+                            <span class="button__icon">→</span>
+                        </a>
+                    </span>
+                </div>
+        </div>
+    
+    </div>
+
+    </div>
+
+    
+    <footer class="footer">
+        <div class="footer__inner">
+                <div class="copyright copyright--user">Email:&nbsp;<a href=mailto:dlzht@protonmail.com>dlzht@protonmail.com</a></div>
+            </div>
+    </footer>
+    
+
+</div>
+</body>
+
+</html>

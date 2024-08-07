@@ -1,0 +1,278 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <script async src="https://www.googletagmanager.com/gtag/js?id=G-Q8CTC2C6DM"></script>
+    <script>
+        window.dataLayer = window.dataLayer || [];
+        function gtag(){dataLayer.push(arguments);}
+        gtag('js', new Date());
+        gtag('config', 'G-Q8CTC2C6DM');
+    </script>
+
+    <title></title>
+    
+    <meta http-equiv="content-type" content="text/html; charset=utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1">
+    <meta name="robots" content="noodp"/>
+
+    <link rel="stylesheet" href="https://dlzht.github.io/style.css">
+    <link rel="stylesheet" href="https://dlzht.github.io/color/blue-light.css">
+
+        <link rel="stylesheet" href="https://dlzht.github.io/color/background_light.css">
+    
+    <link rel="stylesheet" href="https://dlzht.github.io/font-hack-subset.css">
+
+    <meta name="description" content="">
+
+    <meta property="og:description" content="">
+    <meta property="og:title" content="">
+    <meta property="og:type" content="website">
+    <meta property="og:url" content="https://dlzht.github.io/">
+
+    <meta name="twitter:card" content="summary_large_image">
+    <meta name="twitter:description" content="">
+    <meta name="twitter:title" content="">
+    <meta property="twitter:domain" content="dlzht.github.io">
+    <meta property="twitter:url" content="https://dlzht.github.io/">
+
+    </head>
+
+<body class="">
+<div class="container">
+    
+    <header class="header">
+        <div class="header__inner">
+            <div class="header__logo">
+                    
+                <a href="https://dlzht.github.io" style="text-decoration: none;">
+                    <div class="logo">
+                      
+                            QianQi dlzht@protonmail.com
+                        
+                    </div>
+                </a>
+            </div>
+        </div>
+
+        
+        
+                <nav class="menu">
+            <ul class="menu__inner">
+                <li class="active"><a href="https://dlzht.github.io">主页</a></li>
+            
+                <li><a href="https://dlzht.github.io/tags">标签</a></li>
+            
+                <li><a href="https://dlzht.github.io/about">关于</a></li>
+            
+                <li><a href="https://dlzht.github.io/archive">归档</a></li>
+            </ul>
+        </nav>
+    
+    
+        
+    </header>
+    
+
+    <div class="content">
+        
+        <div class="posts">
+                <div class="post on-list">
+                    
+    <h1 class="post-title"><a href="https://dlzht.github.io/005-rust-yi-bu-02/">Rust异步2: Future模型</a></h1>
+    <div class="post-meta-inline">
+        
+    <span class="post-date">
+            2024-05-03
+        </span>
+
+    </div>
+
+    
+        <span class="post-tags-inline">
+                :: tags:&nbsp;
+                <a class="post-tag" href="https://dlzht.github.io/tags/rust/">#Rust</a>&nbsp;
+                <a class="post-tag" href="https://dlzht.github.io/tags/yi-bu/">#异步</a></span>
+    
+
+
+                    
+        <div class="post-content">
+            <p>上一篇<a rel="noopener" target="_blank" href="https://dlzht.github.io/004-rust-yi-bu-01/">为什么需要异步</a>中提到由于不确定事件使得等待无法避免, 并发是可以提供程序运行效率的一种方式. 多线程模式使用最广泛, 兼容性最后, 但由于内存占用和竞争切换等问题, 并发规模会受到线程数量的限制. 为了进一步提高并发的效率和使用体验, 很多语言都(比如Go, Erlang, C#)提供了自己的编程模型, 下面我们就开始介绍Rust的Future模型.</p>
+
+        </div>
+        <!-- <div> -->
+            <!-- &#xFE0E; -- force text style - some devices render this as emoji -->
+            <!-- <a class="read-more button" href="https://dlzht.github.io/005-rust-yi-bu-02/"> -->
+                <!-- <span class="button__text">Read more</span>&nbsp; -->
+                <!-- <span class="button__icon">&#8617;&#xFE0E;</span> -->
+            <!-- </a> -->
+        <!-- </div> -->
+    
+
+                </div>
+            
+                <div class="post on-list">
+                    
+    <h1 class="post-title"><a href="https://dlzht.github.io/004-rust-yi-bu-01/">Rust异步1: 为什么需要异步</a></h1>
+    <div class="post-meta-inline">
+        
+    <span class="post-date">
+            2024-04-30
+        </span>
+
+    </div>
+
+    
+        <span class="post-tags-inline">
+                :: tags:&nbsp;
+                <a class="post-tag" href="https://dlzht.github.io/tags/rust/">#Rust</a>&nbsp;
+                <a class="post-tag" href="https://dlzht.github.io/tags/yi-bu/">#异步</a></span>
+    
+
+
+                    
+        <div class="post-content">
+            <p>这篇文章采用一问一答的形式, 主要介绍Rust异步相关的&quot;基础&quot;问题. &quot;异步编程, 是一种越来越多语言都提供支持的并发模型, 可以在少量的系统线程上并发处理大量的任务, 而且借由async和await语法, 有着和同步一样的编程体验&quot;. 这是<a rel="noopener" target="_blank" href="https://rust-lang.github.io/async-book/01_getting_started/02_why_async.html#why-async">async-book</a>里的一段话, 我们的文章也由此开始.</p>
+
+        </div>
+        <!-- <div> -->
+            <!-- &#xFE0E; -- force text style - some devices render this as emoji -->
+            <!-- <a class="read-more button" href="https://dlzht.github.io/004-rust-yi-bu-01/"> -->
+                <!-- <span class="button__text">Read more</span>&nbsp; -->
+                <!-- <span class="button__icon">&#8617;&#xFE0E;</span> -->
+            <!-- </a> -->
+        <!-- </div> -->
+    
+
+                </div>
+            
+                <div class="post on-list">
+                    
+    <h1 class="post-title"><a href="https://dlzht.github.io/003-yi-wen-bing-fa-mo-xing/">译文: 并发模型</a></h1>
+    <div class="post-meta-inline">
+        
+    <span class="post-date">
+            2024-04-28
+        </span>
+
+    </div>
+
+    
+        <span class="post-tags-inline">
+                :: tags:&nbsp;
+                <a class="post-tag" href="https://dlzht.github.io/tags/yi-bu/">#异步</a>&nbsp;
+                <a class="post-tag" href="https://dlzht.github.io/tags/yi-wen/">#译文</a></span>
+    
+
+
+                    
+        <div class="post-content">
+            <p>这是一篇翻译文章, 原文是<a rel="noopener" target="_blank" href="https://www.tedinski.com/2018/11/06/concurrency-models.html">Different models of concurrency</a>(by <a rel="noopener" target="_blank" href="https://www.github.com/tedinski">Ted Kaminski</a>). 文章主要向我们介绍了多线程和事件循环这两种并发模型, 以及基于事件循环后的绿色进程和await模式, 可以帮助我们理解现代并发模式的各种实现.</p>
+
+        </div>
+        <!-- <div> -->
+            <!-- &#xFE0E; -- force text style - some devices render this as emoji -->
+            <!-- <a class="read-more button" href="https://dlzht.github.io/003-yi-wen-bing-fa-mo-xing/"> -->
+                <!-- <span class="button__text">Read more</span>&nbsp; -->
+                <!-- <span class="button__icon">&#8617;&#xFE0E;</span> -->
+            <!-- </a> -->
+        <!-- </div> -->
+    
+
+                </div>
+            
+                <div class="post on-list">
+                    
+    <h1 class="post-title"><a href="https://dlzht.github.io/002-yi-wen-bing-fa-he-bing-xing/">译文: 并发和并行</a></h1>
+    <div class="post-meta-inline">
+        
+    <span class="post-date">
+            2024-04-26
+        </span>
+
+    </div>
+
+    
+        <span class="post-tags-inline">
+                :: tags:&nbsp;
+                <a class="post-tag" href="https://dlzht.github.io/tags/yi-bu/">#异步</a>&nbsp;
+                <a class="post-tag" href="https://dlzht.github.io/tags/yi-wen/">#译文</a></span>
+    
+
+
+                    
+        <div class="post-content">
+            <p>这是一篇翻译文章, 原文是<a rel="noopener" target="_blank" href="https://www.tedinski.com/2018/10/16/concurrency-vs-parallelism.html">Concurrency vs parellism</a>(by <a rel="noopener" target="_blank" href="https://www.github.com/tedinski">Ted Kaminski</a>). 文章主要向我们介绍了并发和并行的区别在哪, 以及是什么原因导致这两个概念变得模糊, 可以帮助我们理解现代并发设计中要解决的问题是什么.</p>
+
+        </div>
+        <!-- <div> -->
+            <!-- &#xFE0E; -- force text style - some devices render this as emoji -->
+            <!-- <a class="read-more button" href="https://dlzht.github.io/002-yi-wen-bing-fa-he-bing-xing/"> -->
+                <!-- <span class="button__text">Read more</span>&nbsp; -->
+                <!-- <span class="button__icon">&#8617;&#xFE0E;</span> -->
+            <!-- </a> -->
+        <!-- </div> -->
+    
+
+                </div>
+            
+                <div class="post on-list">
+                    
+    <h1 class="post-title"><a href="https://dlzht.github.io/001-shu-zi-zheng-shu-he-shu-zi-qian-ming-na-xie-shi/">数字证书和数字签名那些事</a></h1>
+    <div class="post-meta-inline">
+        
+    <span class="post-date">
+            2024-04-23
+        </span>
+
+    </div>
+
+    
+        <span class="post-tags-inline">
+                :: tags:&nbsp;
+                <a class="post-tag" href="https://dlzht.github.io/tags/za-wen/">#杂文</a></span>
+    
+
+
+                    
+        <div class="post-content">
+            <p>数字证书和数字签名是构建现今数字安全的基石, 随着计算机世界愈加复杂, 信任和安全愈加重要, 他们扮演的角色也愈加的重要. 在web服务, 区块链, 电子邮件, 电子签名和智能家居等数不胜数的场景中, 都可以发现这些技术的身影. 这篇文章将主要讲述数字证书和数字签名的概念和原理, 以及CA, OCSP等与之相关内容, 希望对需要了解这方面内容的读者有所帮助. </p>
+
+        </div>
+        <!-- <div> -->
+            <!-- &#xFE0E; -- force text style - some devices render this as emoji -->
+            <!-- <a class="read-more button" href="https://dlzht.github.io/001-shu-zi-zheng-shu-he-shu-zi-qian-ming-na-xie-shi/"> -->
+                <!-- <span class="button__text">Read more</span>&nbsp; -->
+                <!-- <span class="button__icon">&#8617;&#xFE0E;</span> -->
+            <!-- </a> -->
+        <!-- </div> -->
+    
+
+                </div>
+            <div class="pagination">
+                <div class="pagination__buttons">
+                    <span class="button previous">
+                        <a href="https://dlzht.github.io/page/2/">
+                            <span class="button__icon">&lt;--</span>&nbsp;
+                            <span class="button__text">Perv</span>
+                        </a>
+                    </span>
+                </div>
+            </div>
+        </div>
+        
+    </div>
+
+    
+    <footer class="footer">
+        <div class="footer__inner">
+                <div class="copyright copyright--user">Email:&nbsp;<a href=mailto:dlzht@protonmail.com>dlzht@protonmail.com</a></div>
+            </div>
+    </footer>
+    
+
+</div>
+</body>
+
+</html>

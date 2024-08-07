@@ -1,0 +1,278 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <script async src="https://www.googletagmanager.com/gtag/js?id=G-Q8CTC2C6DM"></script>
+    <script>
+        window.dataLayer = window.dataLayer || [];
+        function gtag(){dataLayer.push(arguments);}
+        gtag('js', new Date());
+        gtag('config', 'G-Q8CTC2C6DM');
+    </script>
+
+    <title></title>
+    
+    <meta http-equiv="content-type" content="text/html; charset=utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1">
+    <meta name="robots" content="noodp"/>
+
+    <link rel="stylesheet" href="https://dlzht.github.io/style.css">
+    <link rel="stylesheet" href="https://dlzht.github.io/color/blue-light.css">
+
+        <link rel="stylesheet" href="https://dlzht.github.io/color/background_light.css">
+    
+    <link rel="stylesheet" href="https://dlzht.github.io/font-hack-subset.css">
+
+    <meta name="description" content="">
+
+    <meta property="og:description" content="">
+    <meta property="og:title" content="">
+    <meta property="og:type" content="article">
+    <meta property="og:url" content="https://dlzht.github.io/011-zou-ma-guan-hua-httpku-2/">
+
+    <meta name="twitter:card" content="summary_large_image">
+    <meta name="twitter:description" content="">
+    <meta name="twitter:title" content="">
+    <meta property="twitter:domain" content="dlzht.github.io">
+    <meta property="twitter:url" content="https://dlzht.github.io/011-zou-ma-guan-hua-httpku-2/">
+
+    </head>
+
+<body class="">
+<div class="container">
+    
+    <header class="header">
+        <div class="header__inner">
+            <div class="header__logo">
+                    
+                <a href="https://dlzht.github.io" style="text-decoration: none;">
+                    <div class="logo">
+                      
+                            QianQi dlzht@protonmail.com
+                        
+                    </div>
+                </a>
+            </div>
+        </div>
+
+        
+        
+                <nav class="menu">
+            <ul class="menu__inner">
+                <li class="active"><a href="https://dlzht.github.io">主页</a></li>
+            
+                <li><a href="https://dlzht.github.io/tags">标签</a></li>
+            
+                <li><a href="https://dlzht.github.io/about">关于</a></li>
+            
+                <li><a href="https://dlzht.github.io/archive">归档</a></li>
+            </ul>
+        </nav>
+    
+    
+        
+    </header>
+    
+
+    <div class="content">
+        
+    <div class="post">
+        
+    <h1 class="post-title"><a href="https://dlzht.github.io/011-zou-ma-guan-hua-httpku-2/">走马观花http库2</a></h1>
+    <div class="post-meta-inline">
+        
+    <span class="post-date">
+            2024-07-03
+        </span>
+
+    </div>
+
+    
+        <span class="post-tags-inline">
+                :: tags:&nbsp;
+                <a class="post-tag" href="https://dlzht.github.io/tags/rust/">#Rust</a>&nbsp;
+                <a class="post-tag" href="https://dlzht.github.io/tags/http/">#http</a>&nbsp;
+                <a class="post-tag" href="https://dlzht.github.io/tags/hyper/">#hyper</a></span>
+    
+
+        <div class="post-content">
+            <p>HeaderMap是http库里用来处理协议头的结构, 本质上是一个哈希表, 解决哈希冲突的策略是开放地址, 地址探测采用的是<a rel="noopener" target="_blank" href="https://en.wikipedia.org/wiki/Hash_table#Robin_Hood_hashing">robin hood</a>. 因为是专用于http头的场景, 还具有键不区分字母大小写, 一个键可以对于多个值, 可以在快速哈希和安全哈希间切换等特点.</p>
+<span id="continue-reading"></span><h2 id="shu-ju-jie-gou">数据结构</h2>
+<pre data-lang="rust" style="background-color:#272822;color:#f8f8f2;" class="language-rust "><code class="language-rust" data-lang="rust"><span style="color:#f92672;">pub </span><span style="font-style:italic;color:#66d9ef;">struct </span><span>HeaderMap&lt;T = HeaderValue&gt; {
+</span><span>  mask: Size,
+</span><span>  entries: </span><span style="font-style:italic;color:#66d9ef;">Vec</span><span>&lt;Bucket&lt;T&gt;&gt;,          </span><span style="color:#75715e;">//存放键和值
+</span><span>  indices: </span><span style="font-style:italic;color:#66d9ef;">Box</span><span>&lt;[Pos]&gt;,              </span><span style="color:#75715e;">//哈希槽
+</span><span>  extra_values: </span><span style="font-style:italic;color:#66d9ef;">Vec</span><span>&lt;ExtraValue&lt;T&gt;&gt;, </span><span style="color:#75715e;">//存放多个值
+</span><span>  danger: Danger,                   </span><span style="color:#75715e;">//安全状态
+</span><span>}
+</span></code></pre>
+<p>HeaderMap的代码定义如上, <code>mask</code>是一共分配了多少哈希槽, <code>entries</code>存放键和值, <code>indices</code>是哈希槽, <code>extra_values</code>处理一个键有多个值的情况, <code>danger</code>是安全状态, 用来应对哈希碰撞攻击.</p>
+<pre data-lang="rust" style="background-color:#272822;color:#f8f8f2;" class="language-rust "><code class="language-rust" data-lang="rust"><span>entries: </span><span style="font-style:italic;color:#66d9ef;">Vec</span><span>&lt;Bucket&lt;T&gt;&gt;
+</span><span>
+</span><span style="font-style:italic;color:#66d9ef;">struct </span><span>Bucket&lt;T&gt; {
+</span><span>  hash: HashValue,       </span><span style="color:#75715e;">//哈希值
+</span><span>  key: HeaderName,       </span><span style="color:#75715e;">//键
+</span><span>  value: T,              </span><span style="color:#75715e;">//值
+</span><span>  links: </span><span style="font-style:italic;color:#66d9ef;">Option</span><span>&lt;Links&gt;,  </span><span style="color:#75715e;">//有多个值时, 双向链表表头
+</span><span>}
+</span><span>
+</span><span style="font-style:italic;color:#66d9ef;">struct </span><span>Links {
+</span><span>  next: </span><span style="font-style:italic;color:#66d9ef;">usize</span><span>,
+</span><span>  tail: </span><span style="font-style:italic;color:#66d9ef;">usize</span><span>,
+</span><span>}
+</span></code></pre>
+<p><code>entries</code>数组里的元素, 即保存了键, 也保存了一个值. 如果这个键有多个值, 其他的值会用<code>links</code>串起来, 构成一个双向链表. <code>hash</code>这个字段是对键做哈希得到的哈希值, 在查找时作为比较条件的一部分.</p>
+<pre data-lang="rust" style="background-color:#272822;color:#f8f8f2;" class="language-rust "><code class="language-rust" data-lang="rust"><span>indices: </span><span style="font-style:italic;color:#66d9ef;">Box</span><span>&lt;[Pos]&gt; 
+</span><span>
+</span><span style="font-style:italic;color:#66d9ef;">struct </span><span>Pos {
+</span><span>  index: Size,      </span><span style="color:#75715e;">//在entries数组中的下标
+</span><span>  hash: HashValue,
+</span><span>}
+</span></code></pre>
+<p><code>indices</code>是哈希槽数组, 槽里的<code>Pos</code>记录的是<code>entries</code>数组的下标, 表示这个槽位的的具体数据是 <code>entries</code>数组里的第<code>index</code>项. <code>entries</code>和<code>indices</code>的比例大概是3:4, <code>indices</code>的最大长度被限制为<code>1&lt;&lt;15</code>.</p>
+<pre data-lang="rust" style="background-color:#272822;color:#f8f8f2;" class="language-rust "><code class="language-rust" data-lang="rust"><span>extra_values: </span><span style="font-style:italic;color:#66d9ef;">Vec</span><span>&lt;ExtraValue&lt;T&gt;&gt;
+</span><span>
+</span><span style="font-style:italic;color:#66d9ef;">struct </span><span>ExtraValue&lt;T&gt; {
+</span><span>  value: T,    </span><span style="color:#75715e;">//值
+</span><span>  prev: Link,  </span><span style="color:#75715e;">//前一项
+</span><span>  next: Link,  </span><span style="color:#75715e;">//后一项
+</span><span>}
+</span><span>
+</span><span style="font-style:italic;color:#66d9ef;">enum </span><span>Link {
+</span><span>  Entry(</span><span style="font-style:italic;color:#66d9ef;">usize</span><span>),  </span><span style="color:#75715e;">//entries数组里的元素
+</span><span>  Extra(</span><span style="font-style:italic;color:#66d9ef;">usize</span><span>),  </span><span style="color:#75715e;">//extra_values数组里的元素
+</span><span>}
+</span></code></pre>
+<p>当键对应多个值时, 除第一个值会和键一起存放在<code>entries</code>数组中, 其余的值会存放在<code>extra_values</code>数组, 这些值一起串成一个双向链表, <code>entries</code>里的第一个值相当于表头. <code>extra_values</code>里的元素只保存值而不保存键, 所以和<code>entries</code>里的元素有一些区别, 这里<code>Link</code>枚举 用<code>Entry</code>和<code>Extra</code>这两种类型表示.</p>
+
+  
+  
+    
+    
+  
+  <img src="https://dlzht.github.io/image/011_01.png" alt="image 404" class="center" decoding="async" loading="lazy"/>
+
+<p>HeaderMap的实现可能是参考了<a rel="noopener" target="_blank" href="https://github.com/indexmap-rs/indexmap">indexmap</a>的早期实现, 见<a rel="noopener" target="_blank" href="https://github.com/hyperium/http/issues/489">issue 489</a>. 用下标替代指针查找, 数据项集中存储在数组中, 更好地利用缓存局部性.</p>
+<h2 id="di-zhi-tan-ce">地址探测</h2>
+<p>由于HeaderMap解决哈希冲突的策略是开放地址, 所以需要地址探测来确定冲突项该放在哪个槽里, 这里采用的算法是robin hood. 当要插入一个键值对<code>(key, value)</code>时, 理想的槽位应该是<code>hash(key) &amp; mask</code>. </p>
+<p>如果这个槽位已经被占用了, 就顺延到下一个位置. 每顺延一次, 离理想槽位的距离就+1. 对于键<code>x</code>, 我们可以用<code>d(x)</code>表示这个距离. 如果键<code>x</code>正好可以放在理想位置, 那<code>d(x)</code>就是0. </p>
+<pre data-lang="rust" style="background-color:#272822;color:#f8f8f2;" class="language-rust "><code class="language-rust" data-lang="rust"><span style="font-style:italic;color:#66d9ef;">fn </span><span style="color:#a6e22e;">try_insert2</span><span>&lt;K&gt;(</span><span style="color:#f92672;">&amp;mut </span><span style="font-style:italic;color:#fd971f;">self</span><span>, </span><span style="font-style:italic;color:#fd971f;">key</span><span>: K, </span><span style="font-style:italic;color:#fd971f;">value</span><span>: T) -&gt; </span><span style="font-style:italic;color:#66d9ef;">Result</span><span>&lt;</span><span style="font-style:italic;color:#66d9ef;">Option</span><span>&lt;T&gt;, MaxSizeReached&gt; {
+</span><span>  </span><span style="color:#75715e;">//预先占位, 包含扩容, 校验是否安全等操作
+</span><span>  self.</span><span style="color:#66d9ef;">try_reserve_one</span><span>()</span><span style="color:#f92672;">?</span><span>;
+</span><span>  </span><span style="color:#75715e;">//计算键的哈希值
+</span><span>  </span><span style="font-style:italic;color:#66d9ef;">let</span><span> hash </span><span style="color:#f92672;">= </span><span style="color:#66d9ef;">hash_elem_using</span><span>(</span><span style="color:#f92672;">&amp;</span><span>self.danger, </span><span style="color:#f92672;">&amp;</span><span>key);
+</span><span>  </span><span style="color:#75715e;">//计算理想槽位
+</span><span>  </span><span style="font-style:italic;color:#66d9ef;">let </span><span style="color:#f92672;">mut</span><span> probe </span><span style="color:#f92672;">= </span><span style="color:#66d9ef;">desired_pos</span><span>(self.mask, hash);
+</span><span>  &#39;probe: </span><span style="color:#f92672;">loop </span><span>{
+</span><span>    </span><span style="color:#75715e;">//循环数组
+</span><span>    </span><span style="color:#f92672;">if</span><span> probe </span><span style="color:#f92672;">&lt; </span><span>(self.indices.</span><span style="color:#66d9ef;">len</span><span>()) {
+</span><span>      </span><span style="color:#75715e;">//当前槽位已经被占用
+</span><span>      </span><span style="color:#f92672;">if </span><span style="font-style:italic;color:#66d9ef;">let Some</span><span>((pos, entry_hash)) </span><span style="color:#f92672;">= </span><span>self.indices[probe].</span><span style="color:#66d9ef;">resolve</span><span>() {
+</span><span>        </span><span style="color:#75715e;">//计算当前槽位里项的距离
+</span><span>        </span><span style="font-style:italic;color:#66d9ef;">let</span><span> their_dist </span><span style="color:#f92672;">= </span><span style="color:#66d9ef;">probe_distance</span><span>(self.mask, entry_hash, probe);
+</span><span>        </span><span style="color:#75715e;">//当前槽位里项的距离更小
+</span><span>        </span><span style="color:#f92672;">if</span><span> their_dist </span><span style="color:#f92672;">&lt;</span><span> dist {
+</span><span>          ret </span><span style="color:#f92672;">= </span><span>{
+</span><span>            self.</span><span style="color:#66d9ef;">try_insert_phase_two</span><span>(key.</span><span style="color:#66d9ef;">into</span><span>(), value, hash, probe, danger)</span><span style="color:#f92672;">?</span><span>;
+</span><span>            </span><span style="font-style:italic;color:#66d9ef;">None
+</span><span>          };
+</span><span>          </span><span style="color:#f92672;">break &#39;probe</span><span>;
+</span><span>        </span><span style="color:#75715e;">//键已存在
+</span><span>        } </span><span style="color:#f92672;">else if</span><span> entry_hash </span><span style="color:#f92672;">==</span><span> hash </span><span style="color:#f92672;">&amp;&amp; </span><span>self.entries[pos].key </span><span style="color:#f92672;">==</span><span> key {
+</span><span>          ret </span><span style="color:#f92672;">= </span><span>(</span><span style="font-style:italic;color:#66d9ef;">Some</span><span>(self.</span><span style="color:#66d9ef;">insert_occupied</span><span>(pos, value)));
+</span><span>          </span><span style="color:#f92672;">break &#39;probe</span><span>;
+</span><span>        }
+</span><span>      </span><span style="color:#75715e;">//槽位为空, 直接使用
+</span><span>      } </span><span style="color:#f92672;">else </span><span>{
+</span><span>        ret </span><span style="color:#f92672;">= </span><span>{
+</span><span>          </span><span style="font-style:italic;color:#66d9ef;">let</span><span> index </span><span style="color:#f92672;">= </span><span>self.entries.</span><span style="color:#66d9ef;">len</span><span>();
+</span><span>          self.</span><span style="color:#66d9ef;">try_insert_entry</span><span>(hash, key.</span><span style="color:#66d9ef;">into</span><span>(), value)</span><span style="color:#f92672;">?</span><span>;
+</span><span>          self.indices[probe] </span><span style="color:#f92672;">= </span><span>Pos::new(index, hash);
+</span><span>          </span><span style="font-style:italic;color:#66d9ef;">None
+</span><span>        };
+</span><span>        </span><span style="color:#f92672;">break &#39;probe</span><span>;
+</span><span>      }
+</span><span>      dist </span><span style="color:#f92672;">+= </span><span style="color:#ae81ff;">1</span><span>;
+</span><span>      probe </span><span style="color:#f92672;">+= </span><span style="color:#ae81ff;">1</span><span>;
+</span><span>    } </span><span style="color:#f92672;">else </span><span>{
+</span><span>      probe </span><span style="color:#f92672;">= </span><span style="color:#ae81ff;">0</span><span>;
+</span><span>    }
+</span><span>  }
+</span><span>  </span><span style="font-style:italic;color:#66d9ef;">Ok</span><span>(ret)
+</span></code></pre>
+<p>对于插入<code>(key, value)</code>, 找到合适的槽位有两种情况. 第一种, 在顺延过程中, 如果槽里有键<code>x</code>, 如果<code>d(key)</code> &gt; <code>d(x)</code>, 就可以占用这个槽位, 让<code>x</code>往后去找其他位置. 第二种, 遇到了空槽, 直接占用这个空槽就行.</p>
+<p>查询键<code>key</code>时, 从理想位置开始, 逐个比较键是否相同, 直至遇到空槽或者<code>d(x)</code> &lt; <code>d(key)</code>; 删除<code>key</code>时, 先找到对应的槽位清理, 然后把这个槽开始到下一个空槽之间的项都往前挪一个位置.</p>
+<p>在插入和删除时维护距离规则, 就是robin hood这种地址探测算法, 用来尽量保证查询效率的手段.</p>
+<h2 id="ha-xi-an-quan">哈希安全</h2>
+<p>哈希碰撞攻击, 就是攻击者可以找到一组键, 这组键计算出来的哈希值是相同的, 所以在构造哈希表时会发生大量的冲突, 使得增删查的效率大幅下降. 安全哈希一般通过引入随机性, 使得同一个键在不同哈希表实例中, 算出来的哈希值不同.</p>
+<pre data-lang="rust" style="background-color:#272822;color:#f8f8f2;" class="language-rust "><code class="language-rust" data-lang="rust"><span style="font-style:italic;color:#66d9ef;">fn </span><span style="color:#a6e22e;">hash_elem_using</span><span>&lt;K&gt;(</span><span style="font-style:italic;color:#fd971f;">danger</span><span>: </span><span style="color:#f92672;">&amp;</span><span>Danger, </span><span style="font-style:italic;color:#fd971f;">k</span><span>: </span><span style="color:#f92672;">&amp;</span><span>K) -&gt; HashValue
+</span><span>{
+</span><span>  </span><span style="font-style:italic;color:#66d9ef;">let</span><span> hash </span><span style="color:#f92672;">= match *</span><span>danger {
+</span><span>    </span><span style="color:#75715e;">//红色状态使用安全哈希
+</span><span>    Danger::Red(</span><span style="color:#f92672;">ref</span><span> hasher) </span><span style="color:#f92672;">=&gt; </span><span>{
+</span><span>      </span><span style="font-style:italic;color:#66d9ef;">let </span><span style="color:#f92672;">mut</span><span> h </span><span style="color:#f92672;">=</span><span> hasher.</span><span style="color:#66d9ef;">build_hasher</span><span>();
+</span><span>      </span><span style="color:#f92672;">...
+</span><span>    }
+</span><span>    </span><span style="color:#75715e;">//其他状态使用快速哈希
+</span><span>    </span><span style="color:#f92672;">_ =&gt; </span><span>{
+</span><span>      </span><span style="font-style:italic;color:#66d9ef;">let </span><span style="color:#f92672;">mut</span><span> h </span><span style="color:#f92672;">= </span><span>FnvHasher::default();
+</span><span>      </span><span style="color:#f92672;">...
+</span><span>    }
+</span><span>  };
+</span><span>}
+</span></code></pre>
+<p>HeaderMap提供了两种方式来计算键的哈希值, 一种是<code>FnvHasher</code>, 算起来快但不够安全, 在一般状态时使用; 另一种是<code>DefaultHasher</code>, 即标准库提供的默认哈希, 算起来比较慢但安全, 在红色状态时使用.</p>
+<p><code>FnvHasher</code>对与某个键计算出来的结果总是一样的, 所以不够安全; 而<code>DefaultHasher</code>中有随机数, 可以避免哈希碰撞攻击. 在接收响应或者请求时, 协议头通常是外部输入参数, 引入哈希安全非常必要.</p>
+<h2 id="jian-headername">键HeaderName</h2>
+<pre data-lang="rust" style="background-color:#272822;color:#f8f8f2;" class="language-rust "><code class="language-rust" data-lang="rust"><span style="font-style:italic;color:#66d9ef;">let</span><span> name</span><span style="color:#f92672;">= </span><span>HeaderName::from_str(</span><span style="color:#e6db74;">&quot;A&quot;</span><span>); 
+</span><span>println!(</span><span style="color:#e6db74;">&quot;</span><span style="color:#ae81ff;">{:?}</span><span style="color:#e6db74;">&quot;</span><span>, name); </span><span style="color:#75715e;">//Ok(&quot;a&quot;) 
+</span></code></pre>
+<p>HeaderMap哈希表键的类型是HeaderName, 根据RFC的描述, 协议头的键里如果有拉丁字母, 在HTTP1.1版本的是不区分大小写的, 在HTTP2.0版本则只能是小写. 因此在使用<code>HeaderName::from_bytes</code>, <code>HeaderName::from_str</code>等函数时, 大写会自动转换成小写, 创建出来的<code>HeaderName</code>不会包含大写字母.</p>
+<h2 id="zhi-headervalue-t">值HeaderValue/T</h2>
+<p>从类型定义上<code>HeaderMap&lt;T = HeaderValue&gt;</code>可以看出, <code>HeaderMap</code>的值除了默认的<code>HeaderValue</code>类型, 还可以是其他类型<code>T</code>. 除了处理键值对形式的协议头, <code>HeaderMap</code>还能用来做其他事.</p>
+<p>比如<code>HeaderCaseMap</code>的内部就是一个<code>HeaderMap</code>, 用在需要区分大小写的场景中. <code>HeaderCaseMap</code>的键值大概是这样<code>HeaderName -&gt; [Name1, name2, NAME3]</code>, 配合上<code>HeaderMape</code>里的<code>HeaderName -&gt; [v1, v2, v3]</code>, 就可以还原出最初的协议头内容了.</p>
+</br>
+<p><em>-&gt; 如果文章有不足之处或者有改进的建议，可以在<a rel="noopener" target="_blank" href="https://github.com/dlzht/dlzht.github.io/discussions/11">这边</a>告诉我，也可以发送给我的<a href="mailto:dlzht@protonmail.com">邮箱</a></em></p>
+
+        </div>
+
+        
+        <div class="pagination">
+            <!-- <div class="pagination__title"> -->
+                <!-- <span class="pagination__title-h">++</span> -->
+                <!-- <hr /> -->
+            <!-- </div> -->
+            <div class="pagination__buttons">
+                    <span class="button previous">
+                        <a href="https://dlzht.github.io/010-zou-ma-guan-hua-httpku-1/">
+                            <span class="button__icon">←</span>&nbsp;
+                            <span class="button__text">走马观花http库1</span>
+                        </a>
+                    </span>
+                
+                
+                    <span class="button next">
+                        <a href="https://dlzht.github.io/012-rustxia-sm4-aes-rsajia-jie-mi/">
+                            <span class="button__text">Rust下SM4&#x2F;AES&#x2F;RSA加解密</span>&nbsp;
+                            <span class="button__icon">→</span>
+                        </a>
+                    </span>
+                </div>
+        </div>
+    
+    </div>
+
+    </div>
+
+    
+    <footer class="footer">
+        <div class="footer__inner">
+                <div class="copyright copyright--user">Email:&nbsp;<a href=mailto:dlzht@protonmail.com>dlzht@protonmail.com</a></div>
+            </div>
+    </footer>
+    
+
+</div>
+</body>
+
+</html>

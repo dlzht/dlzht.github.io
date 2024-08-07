@@ -1,0 +1,232 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <script async src="https://www.googletagmanager.com/gtag/js?id=G-Q8CTC2C6DM"></script>
+    <script>
+        window.dataLayer = window.dataLayer || [];
+        function gtag(){dataLayer.push(arguments);}
+        gtag('js', new Date());
+        gtag('config', 'G-Q8CTC2C6DM');
+    </script>
+
+    <title></title>
+    
+    <meta http-equiv="content-type" content="text/html; charset=utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1">
+    <meta name="robots" content="noodp"/>
+
+    <link rel="stylesheet" href="https://dlzht.github.io/style.css">
+    <link rel="stylesheet" href="https://dlzht.github.io/color/blue-light.css">
+
+        <link rel="stylesheet" href="https://dlzht.github.io/color/background_light.css">
+    
+    <link rel="stylesheet" href="https://dlzht.github.io/font-hack-subset.css">
+
+    <meta name="description" content="">
+
+    <meta property="og:description" content="">
+    <meta property="og:title" content="">
+    <meta property="og:type" content="article">
+    <meta property="og:url" content="https://dlzht.github.io/006-rust-yi-bu-03/">
+
+    <meta name="twitter:card" content="summary_large_image">
+    <meta name="twitter:description" content="">
+    <meta name="twitter:title" content="">
+    <meta property="twitter:domain" content="dlzht.github.io">
+    <meta property="twitter:url" content="https://dlzht.github.io/006-rust-yi-bu-03/">
+
+    </head>
+
+<body class="">
+<div class="container">
+    
+    <header class="header">
+        <div class="header__inner">
+            <div class="header__logo">
+                    
+                <a href="https://dlzht.github.io" style="text-decoration: none;">
+                    <div class="logo">
+                      
+                            QianQi dlzht@protonmail.com
+                        
+                    </div>
+                </a>
+            </div>
+        </div>
+
+        
+        
+                <nav class="menu">
+            <ul class="menu__inner">
+                <li class="active"><a href="https://dlzht.github.io">主页</a></li>
+            
+                <li><a href="https://dlzht.github.io/tags">标签</a></li>
+            
+                <li><a href="https://dlzht.github.io/about">关于</a></li>
+            
+                <li><a href="https://dlzht.github.io/archive">归档</a></li>
+            </ul>
+        </nav>
+    
+    
+        
+    </header>
+    
+
+    <div class="content">
+        
+    <div class="post">
+        
+    <h1 class="post-title"><a href="https://dlzht.github.io/006-rust-yi-bu-03/">Rust异步3: async&#x2F;await语法</a></h1>
+    <div class="post-meta-inline">
+        
+    <span class="post-date">
+            2024-05-10
+        </span>
+
+    </div>
+
+    
+        <span class="post-tags-inline">
+                :: tags:&nbsp;
+                <a class="post-tag" href="https://dlzht.github.io/tags/rust/">#Rust</a>&nbsp;
+                <a class="post-tag" href="https://dlzht.github.io/tags/yi-bu/">#异步</a></span>
+    
+
+        <div class="post-content">
+            <p>上一篇<a rel="noopener" target="_blank" href="https://dlzht.github.io/005-rust-yi-bu-02/">Future模型</a>中介绍了Future模式是如何工作的, 我们开发异步程序时只要实现Future, 然后交给runtime去推动就可以了. 虽然状态机实现的Future, 具有内存占用少, 执行效率高等优点, 但也存在一些问题, 比如:</p>
+<ol>
+<li>异步代码要考虑让出和继续, 和同步代码的线性编程方式很不同</li>
+<li>状态机的执行依赖于状态的变更, 程序越复杂, 状态维护越困难</li>
+<li>需要经常和生命周期, Pin等晦涩的概念打交道, 编程门槛不低</li>
+</ol>
+<p>为了缓解Future模式带来的复杂性, 也为了能和同步编程有相似的体验, Rust提供了async和await关键字, 下面我们就来看看这两个语法糖具体做了什么.</p>
+<span id="continue-reading"></span><h4 id="jie-kai-asyncyu-fa-tang">解开async语法糖</h4>
+<p>async用来标记一块代码是异步的, 一方面把异步和同步代码显式区分开来, 因为这两种代码的执行过程是不一样的; 另一方面告诉编译器, 这一块代码需要特别处理.</p>
+<pre data-lang="rust" style="background-color:#272822;color:#f8f8f2;" class="language-rust "><code class="language-rust" data-lang="rust"><span style="color:#75715e;">// 异步函数, a1 的类型是 impl Future&lt;output=i32&gt;
+</span><span>async </span><span style="font-style:italic;color:#66d9ef;">fn </span><span style="color:#a6e22e;">f1</span><span>() -&gt; </span><span style="font-style:italic;color:#66d9ef;">i32 </span><span>{ </span><span style="color:#ae81ff;">1 </span><span>};
+</span><span style="font-style:italic;color:#66d9ef;">let</span><span> a1 </span><span style="color:#f92672;">= </span><span style="color:#66d9ef;">f1</span><span>();
+</span><span>  
+</span><span style="color:#75715e;">// 异步代码块, a2 也是 impl Future&lt;output=i32&gt;
+</span><span style="font-style:italic;color:#66d9ef;">let</span><span> a2 </span><span style="color:#f92672;">=</span><span> async { </span><span style="color:#ae81ff;">1 </span><span>};
+</span><span>
+</span><span style="color:#75715e;">// 异步闭包, a3 也是 impl Future&lt;output=i32&gt;
+</span><span style="font-style:italic;color:#66d9ef;">let</span><span> f3 </span><span style="color:#f92672;">=</span><span> async </span><span style="color:#f92672;">move || </span><span style="color:#ae81ff;">1</span><span>;
+</span><span style="font-style:italic;color:#66d9ef;">let</span><span> a3 </span><span style="color:#f92672;">= </span><span style="color:#66d9ef;">f3</span><span>();
+</span></code></pre>
+<p>使用async的地方有三个: 函数<code>async fn</code>, 代码块<code>async {}</code>和闭包<code>async ||</code>. 这里函数与闭包一样, 被调用后返回一个Future, 而代码块本身是一个Future. async关键字对于这三者的作用是类似的, 下文主要介绍异步函数.</p>
+<pre data-lang="rust" style="background-color:#272822;color:#f8f8f2;" class="language-rust "><code class="language-rust" data-lang="rust"><span>async </span><span style="font-style:italic;color:#66d9ef;">fn </span><span style="color:#a6e22e;">foo</span><span>() -&gt; String { </span><span style="color:#f92672;">... </span><span>}
+</span><span style="color:#75715e;">// 去掉async语法糖
+</span><span style="font-style:italic;color:#66d9ef;">fn </span><span style="color:#a6e22e;">foo</span><span>() -&gt; impl Future&lt;Output=</span><span style="font-style:italic;color:#66d9ef;">String</span><span>&gt; { </span><span style="color:#f92672;">... </span><span>}
+</span></code></pre>
+<p>async修改了异步函数的返回类型, 比如上面的foo函数, 返回类型<code>String</code>只是内部类型, 外面还有一层隐藏的<code>impl Future&lt;...&gt;</code>. 所以对于<code>async fn foo() -&gt; String { ... }</code>这个函数来说, 去掉async语法糖后就形如<code>fn foo() -&gt; impl Future&lt;Output=String&gt;</code>. </p>
+<pre data-lang="rust" style="background-color:#272822;color:#f8f8f2;" class="language-rust "><code class="language-rust" data-lang="rust"><span style="color:#75715e;">// 匿名的Future实现类型
+</span><span style="font-style:italic;color:#66d9ef;">enum </span><span>_FooFuture { </span><span style="color:#f92672;">... </span><span>}
+</span><span style="font-style:italic;color:#66d9ef;">impl </span><span>Future </span><span style="color:#f92672;">for </span><span>_FooFuture {
+</span><span>  </span><span style="font-style:italic;color:#66d9ef;">type </span><span>Output </span><span style="color:#f92672;">= </span><span style="font-style:italic;color:#66d9ef;">String</span><span>;
+</span><span>  </span><span style="color:#75715e;">// 函数体转换成poll方法
+</span><span>  </span><span style="font-style:italic;color:#66d9ef;">fn </span><span style="color:#a6e22e;">poll</span><span>(</span><span style="font-style:italic;color:#fd971f;">self</span><span>: Pin&lt;</span><span style="color:#f92672;">&amp;mut </span><span style="font-style:italic;color:#66d9ef;">Self</span><span>&gt;, </span><span style="font-style:italic;color:#fd971f;">cx</span><span>: </span><span style="color:#f92672;">&amp;mut </span><span>Context&lt;&#39;</span><span style="color:#f92672;">_</span><span>&gt;) -&gt; Poll&lt;</span><span style="font-style:italic;color:#66d9ef;">Self::</span><span>Output&gt; { </span><span style="color:#f92672;">... </span><span>}
+</span><span>  }
+</span><span>}
+</span><span>
+</span><span style="color:#75715e;">// async fn foo() -&gt; String { ... }
+</span><span style="font-style:italic;color:#66d9ef;">fn </span><span style="color:#a6e22e;">foo</span><span>() -&gt; _FooFuture { </span><span style="color:#f92672;">... </span><span>}
+</span></code></pre>
+<p>直接用Future来写异步代码的话, 我们首先得创建一个任务类型, 然后为这个类型实现Future, 还要和Pin, Waker这些打交道. 编写这样的代码是既繁琐又易出错, 要是能让开发者摆脱这些负担就好了. 正是出于这样的考虑, 编译器会为每个异步函数生成一个匿名的Future类型, 并且作为函数的实际返回类型.</p>
+<pre data-lang="rust" style="background-color:#272822;color:#f8f8f2;" class="language-rust "><code class="language-rust" data-lang="rust"><span>async </span><span style="font-style:italic;color:#66d9ef;">fn </span><span style="color:#a6e22e;">f1</span><span>() -&gt; String { </span><span style="color:#f92672;">return </span><span style="font-style:italic;color:#66d9ef;">String</span><span>::new(); }
+</span><span>async </span><span style="font-style:italic;color:#66d9ef;">fn </span><span style="color:#a6e22e;">f2</span><span>() -&gt; String { </span><span style="color:#f92672;">return </span><span style="font-style:italic;color:#66d9ef;">String</span><span>::new(); }
+</span><span>
+</span><span>assert_eq!(</span><span style="color:#66d9ef;">f1</span><span>().</span><span style="color:#66d9ef;">type_id</span><span>(), </span><span style="color:#66d9ef;">f2</span><span>().</span><span style="color:#66d9ef;">type_id</span><span>());
+</span><span style="font-style:italic;color:#66d9ef;">let</span><span> futs </span><span style="color:#f92672;">= </span><span>vec! [</span><span style="color:#66d9ef;">f1</span><span>(), </span><span style="color:#66d9ef;">f2</span><span>()]; </span><span style="color:#75715e;">// Error
+</span></code></pre>
+<p>这一方案减轻了开发者的心智负担, 但也带来了一些问题. 比如上面代码中, 看上去一样的两个返回类型, 实际却是不相同的, 把<code>f1()</code>和<code>f2()</code>直接放进集合的话会报错. 再比如还有怎么为返回的Future添加约束条件, 形如<code>impl Future&lt;...&gt; + Send</code>这样的问题.</p>
+<p>所以async关键字的作用在于屏蔽Future的复杂性, 可以编写<code>async fn f() -&gt; T</code>这样的异步函数, 代码中没有出现Future的身影. 开发者不需要了解底层的Future是什么样的, 不需要考虑poll该怎么实现, 也不需要和Pin, Waker这样的概念打交道, 很大程度上可以降低开发&quot;上层&quot;应用的难度.</p>
+<h4 id="jie-kai-awaityu-fa-tang">解开<code>await</code>语法糖</h4>
+<pre data-lang="rust" style="background-color:#272822;color:#f8f8f2;" class="language-rust "><code class="language-rust" data-lang="rust"><span>async </span><span style="font-style:italic;color:#66d9ef;">fn </span><span style="color:#a6e22e;">web</span><span>() {
+</span><span>  </span><span style="color:#66d9ef;">receive</span><span>().await;
+</span><span>  </span><span style="color:#75715e;">// receive之后才会开始process
+</span><span>  </span><span style="color:#66d9ef;">process</span><span>().await;
+</span><span>}
+</span><span>async </span><span style="font-style:italic;color:#66d9ef;">fn </span><span style="color:#a6e22e;">receive</span><span>() {}
+</span><span>async </span><span style="font-style:italic;color:#66d9ef;">fn </span><span style="color:#a6e22e;">process</span><span>() {}
+</span></code></pre>
+<p>await是一种控制流程的语法. 对于并发来说, 多个任务之间是没有顺序关系的, 但单个任务本身还是有顺序的. 比如以web服务 <strong>接收请求 -&gt; 中间处理 -&gt; 返回响应</strong> 的例子来说, 虽然多个任务可以在线程上交替执行的, 但对于每一个任务, <strong>中间处理</strong> 总要在 <strong>接收请求</strong> 之后. 任务会阻塞在await点上, 执行完await前的逻辑才会再执行后面的逻辑.</p>
+<pre data-lang="rust" style="background-color:#272822;color:#f8f8f2;" class="language-rust "><code class="language-rust" data-lang="rust"><span>#[tokio::main]
+</span><span>async </span><span style="font-style:italic;color:#66d9ef;">fn </span><span style="color:#a6e22e;">main</span><span>() {
+</span><span>  </span><span style="font-style:italic;color:#66d9ef;">let</span><span> fut </span><span style="color:#f92672;">= </span><span style="color:#66d9ef;">web</span><span>();
+</span><span>  </span><span style="font-style:italic;color:#66d9ef;">let</span><span> res </span><span style="color:#f92672;">=</span><span> fut.await;
+</span><span>}
+</span></code></pre>
+<p>await表示这个任务需要执行. 调用异步函数只是创建了一个Future实例, 而poll方法对于的业务逻辑并不会执行. Future的这种惰性, 正需要await来推动. 比如上面的代码, 如果没有.await, 那就只是在内存中创建了一个变量, 没有用就销毁掉了, Future里的逻辑没有执行.</p>
+<pre data-lang="rust" style="background-color:#272822;color:#f8f8f2;" class="language-rust "><code class="language-rust" data-lang="rust"><span style="font-style:italic;color:#66d9ef;">enum </span><span>_WebFuture { </span><span style="color:#ae81ff;">RECEIVE</span><span>, </span><span style="color:#ae81ff;">PROCESS</span><span>, </span><span style="color:#ae81ff;">END </span><span>}
+</span><span>
+</span><span style="font-style:italic;color:#66d9ef;">impl </span><span>Future </span><span style="color:#f92672;">for </span><span>_WebFuture {
+</span><span>  </span><span style="font-style:italic;color:#66d9ef;">type </span><span>Output </span><span style="color:#f92672;">= </span><span>();
+</span><span>  </span><span style="font-style:italic;color:#66d9ef;">fn </span><span style="color:#a6e22e;">poll</span><span>(</span><span style="color:#f92672;">mut </span><span style="font-style:italic;color:#fd971f;">self</span><span>: Pin&lt;</span><span style="color:#f92672;">&amp;mut </span><span style="font-style:italic;color:#66d9ef;">Self</span><span>&gt;, </span><span style="font-style:italic;color:#fd971f;">cx</span><span>: </span><span style="color:#f92672;">&amp;mut </span><span>Context&lt;&#39;</span><span style="color:#f92672;">_</span><span>&gt;) -&gt; Poll&lt;</span><span style="font-style:italic;color:#66d9ef;">Self::</span><span>Output&gt; {
+</span><span>    </span><span style="color:#f92672;">return loop </span><span>{
+</span><span>      </span><span style="color:#f92672;">match &amp; *</span><span>self {
+</span><span>        </span><span style="color:#75715e;">// 子过程1: 接收请求
+</span><span>        _WebFuture::</span><span style="color:#ae81ff;">RECEIVE </span><span style="color:#f92672;">=&gt; </span><span>{
+</span><span>          </span><span style="color:#f92672;">*</span><span>(self.</span><span style="color:#66d9ef;">as_mut</span><span>().</span><span style="color:#66d9ef;">get_mut</span><span>()) </span><span style="color:#f92672;">= </span><span>_WebFuture::</span><span style="color:#ae81ff;">PROCESS</span><span>;
+</span><span>          </span><span style="color:#f92672;">break </span><span>Poll::Pending;
+</span><span>        }
+</span><span>        </span><span style="color:#75715e;">// 子过程2: 中间处理
+</span><span>        _WebFuture::</span><span style="color:#ae81ff;">PROCESS </span><span style="color:#f92672;">=&gt; </span><span>{
+</span><span>          </span><span style="color:#f92672;">*</span><span>(self.</span><span style="color:#66d9ef;">as_mut</span><span>().</span><span style="color:#66d9ef;">get_mut</span><span>()) </span><span style="color:#f92672;">= </span><span>_WebFuture::</span><span style="color:#ae81ff;">END</span><span>;
+</span><span>          </span><span style="color:#f92672;">break </span><span>Poll::Ready(());
+</span><span>        }
+</span><span>        </span><span style="color:#75715e;">// 子过程3: 返回响应
+</span><span>        _WebFuture::</span><span style="color:#ae81ff;">END </span><span style="color:#f92672;">=&gt; </span><span>{ panic!(</span><span style="color:#f92672;">...</span><span>); }
+</span><span>      }
+</span><span>    }
+</span><span>  }
+</span><span>}
+</span></code></pre>
+<p>async是任务让出执行与继续执行的点. 对于异步任务来说, await点是要等待事件的地方, 也就是前面文章里提到的任务被分割成子过程的地方, 所以对于poll方法来说, await点就要考虑让出与继续执行的点. 上文说到编译器会为异步函数生成匿名的Future实现, 而生成的poll方法是原来函数体的转换, 函数体里的await点对应poll里return和match的地方.</p>
+<p>所以await关键字, 对于编译器来说, 提供了异步任务中的&quot;断点&quot;信息, 使得异步函数到Future的转换成为可能; 对于开发者来说, 提供了流程控制, 使得异步代码像同步代码一样, 可以用顺序的方式编写.</p>
+</br>
+<p><em>-&gt; 如果文章有不足之处或者有改进的建议，可以在<a rel="noopener" target="_blank" href="https://github.com/dlzht/dlzht.github.io/discussions/7">这边</a>告诉我，也可以发送给我的<a href="mailto:dlzht@protonmail.com">邮箱</a></em></p>
+
+        </div>
+
+        
+        <div class="pagination">
+            <!-- <div class="pagination__title"> -->
+                <!-- <span class="pagination__title-h">++</span> -->
+                <!-- <hr /> -->
+            <!-- </div> -->
+            <div class="pagination__buttons">
+                    <span class="button previous">
+                        <a href="https://dlzht.github.io/005-rust-yi-bu-02/">
+                            <span class="button__icon">←</span>&nbsp;
+                            <span class="button__text">Rust异步2: Future模型</span>
+                        </a>
+                    </span>
+                
+                
+                    <span class="button next">
+                        <a href="https://dlzht.github.io/007-rust-yi-bu-04/">
+                            <span class="button__text">Rust异步4: Pin和自指类型</span>&nbsp;
+                            <span class="button__icon">→</span>
+                        </a>
+                    </span>
+                </div>
+        </div>
+    
+    </div>
+
+    </div>
+
+    
+    <footer class="footer">
+        <div class="footer__inner">
+                <div class="copyright copyright--user">Email:&nbsp;<a href=mailto:dlzht@protonmail.com>dlzht@protonmail.com</a></div>
+            </div>
+    </footer>
+    
+
+</div>
+</body>
+
+</html>

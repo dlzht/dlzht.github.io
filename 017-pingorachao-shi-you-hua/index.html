@@ -1,0 +1,287 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <script async src="https://www.googletagmanager.com/gtag/js?id=G-Q8CTC2C6DM"></script>
+    <script>
+        window.dataLayer = window.dataLayer || [];
+        function gtag(){dataLayer.push(arguments);}
+        gtag('js', new Date());
+        gtag('config', 'G-Q8CTC2C6DM');
+    </script>
+
+    <title></title>
+    
+    <meta http-equiv="content-type" content="text/html; charset=utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1">
+    <meta name="robots" content="noodp"/>
+
+    <link rel="stylesheet" href="https://dlzht.github.io/style.css">
+    <link rel="stylesheet" href="https://dlzht.github.io/color/blue-light.css">
+
+        <link rel="stylesheet" href="https://dlzht.github.io/color/background_light.css">
+    
+    <link rel="stylesheet" href="https://dlzht.github.io/font-hack-subset.css">
+
+    <meta name="description" content="">
+
+    <meta property="og:description" content="">
+    <meta property="og:title" content="">
+    <meta property="og:type" content="article">
+    <meta property="og:url" content="https://dlzht.github.io/017-pingorachao-shi-you-hua/">
+
+    <meta name="twitter:card" content="summary_large_image">
+    <meta name="twitter:description" content="">
+    <meta name="twitter:title" content="">
+    <meta property="twitter:domain" content="dlzht.github.io">
+    <meta property="twitter:url" content="https://dlzht.github.io/017-pingorachao-shi-you-hua/">
+
+    </head>
+
+<body class="">
+<div class="container">
+    
+    <header class="header">
+        <div class="header__inner">
+            <div class="header__logo">
+                    
+                <a href="https://dlzht.github.io" style="text-decoration: none;">
+                    <div class="logo">
+                      
+                            QianQi dlzht@protonmail.com
+                        
+                    </div>
+                </a>
+            </div>
+        </div>
+
+        
+        
+                <nav class="menu">
+            <ul class="menu__inner">
+                <li class="active"><a href="https://dlzht.github.io">主页</a></li>
+            
+                <li><a href="https://dlzht.github.io/tags">标签</a></li>
+            
+                <li><a href="https://dlzht.github.io/about">关于</a></li>
+            
+                <li><a href="https://dlzht.github.io/archive">归档</a></li>
+            </ul>
+        </nav>
+    
+    
+        
+    </header>
+    
+
+    <div class="content">
+        
+    <div class="post">
+        
+    <h1 class="post-title"><a href="https://dlzht.github.io/017-pingorachao-shi-you-hua/">Pingora的超时优化</a></h1>
+    <div class="post-meta-inline">
+        
+    <span class="post-date">
+            2024-08-09
+        </span>
+
+    </div>
+
+    
+        <span class="post-tags-inline">
+                :: tags:&nbsp;
+                <a class="post-tag" href="https://dlzht.github.io/tags/rust/">#Rust</a>&nbsp;
+                <a class="post-tag" href="https://dlzht.github.io/tags/tokio/">#Tokio</a>&nbsp;
+                <a class="post-tag" href="https://dlzht.github.io/tags/lib/">#lib</a></span>
+    
+
+        <div class="post-content">
+            <p><a rel="noopener" target="_blank" href="https://github.com/cloudflare/pingora/blob/0.3.0/pingora-timeout/src/lib.rs#L27">pingora-timeout</a>上有一段注释, 显示在基准测试中, pingora处理超时事件比tokio默认的时间轮快了有40倍左右. 这倒是挺有意思的, 这篇文章就来看看pingora是怎么优化超时事件的处理的.</p>
+<span id="continue-reading"></span><h2 id="1-zen-yao-jin-xing-chao-shi-you-hua-de">1. 怎么进行超时优化的</h2>
+<h3 id="1-1-pingorashi-shi-yao">1.1 pingora是什么</h3>
+<p><a rel="noopener" target="_blank" href="https://github.com/cloudflare/pingora">pingora</a>是由被网友们称为&quot;互联网慈善家&quot;, &quot;赛博活菩萨&quot;的Cloudflare出品的, 一套用来构建快速, 可靠, 可编程网络系统的Rust框架, 23年05月在Github公开发布源代码.</p>
+<p>根据CF的这两篇文章<a rel="noopener" target="_blank" href="https://blog.cloudflare.com/how-we-built-pingora-the-proxy-that-connects-cloudflare-to-the-internet">how-we-built-pingora-the-proxy...</a>和<a rel="noopener" target="_blank" href="https://blog.cloudflare.com/pingora-open-source">pingora-open-source</a>, 由pingora构建的HTTP代理现已在CF内服役, 每天服务的请求超过1万亿次(new!).</p>
+<pre data-lang="txt" style="background-color:#272822;color:#f8f8f2;" class="language-txt "><code class="language-txt" data-lang="txt"><span>//! Benchmark:
+</span><span>//! - create 7.809622ms total, 78ns avg per iteration
+</span><span>//! - drop: 1.348552ms total, 13ns avg per iteration
+</span><span>//!
+</span><span>//! tokio timer:
+</span><span>//! - create 34.317439ms total, 343ns avg per iteration
+</span><span>//! - drop: 10.694154ms total, 106ns avg per iteration
+</span></code></pre>
+<p>文章里多次提到了快速和高效这样的字眼, 翻了一翻pingora的代码, 其中<a rel="noopener" target="_blank" href="https://github.com/cloudflare/pingora/blob/0.3.0/pingora-timeout/src/timer.rs#L23">pingora-timeout</a>模块有如上注释, 大概意思是, 新增和删除时间事件, 和tokio的时间轮(可以看我上一篇的介绍)相比, 性能提升了n倍.</p>
+<p>看数据这提升量可不小啊, 不会是忽悠我吧? 能优化这么多, 还是说tokio还有很大提升空间啊? 实话实说, 跑了下<code>beanch</code>下的基准测试, 数据也没那么漂亮, 当然也可能是我操作有误...</p>
+<p>可能注释里是CF&quot;真实&quot;的数据, 由实际运行中的服务得来的. 能做到这样的优化, 我觉得那是因为pingora的使用场景比较固定, 从而可以作出比tokio更激进的优化, 下文也尝试着分析下.</p>
+<h3 id="1-2-ying-yong-chang-jing-de-te-dian">1.2 应用场景的特点</h3>
+<p>pingora里的时间事件主要有休眠和超时两类, 心跳检查, 错误重试, 延迟发送等会用到休眠事件; 建立连接, 读取请求, 发送响应等会用到超时事件. 在CF的HTTP代理服务里, 时间事件有如下特点:</p>
+<ul>
+<li>事件的数量会很多, 按CF提到的1万亿请求每天, 读写分别加个超时, 就有2万亿事件了. 当然, 肯定会有很多的机器分担负载, 不过单台上的事件数量也不会少(按<a rel="noopener" target="_blank" href="https://en.wikipedia.org/wiki/C10k_problem">C10K</a>问题来的话).</li>
+<li>时间精度相对宽松, 一方面只有超时边界附件的请求会受到影响的, 相对来说是&quot;少量&quot;的; 另一方面, CF的代理面向全球, 纵然可能针对某些服务单独配置, 但大体上也是笼统模糊的.</li>
+<li>时间范围相对确定, HTTP服务的响应要求及时, 毕竟响应每延迟X秒, 用户就流失百分之Y. 所以中间代理服务的超时时间也不用设置的太长, 可以限定在小范围的区间内(比如[0, 10]秒).</li>
+</ul>
+<h3 id="1-3-shi-jian-shi-jian-de-you-hua">1.3 时间事件的优化</h3>
+
+  
+  
+    
+    
+  
+  <img src="https://dlzht.github.io/image/017_01.png" alt="image 404" class="center" decoding="async" loading="lazy"/>
+
+<ul>
+<li>没有全局的锁, 每个线程的时间事件都单独管理, 维护事件的数据结构是线程本地的, 不像tokio时间轮是运行时全局的, 新增或者删除时间事件都要用锁来同步.</li>
+<li>时间精度粗糙些, 每个槽位的跨度都是10毫秒, 槽位里的事件都监听在同一个<a rel="noopener" target="_blank" href="https://github.com/tokio-rs/tokio/blob/tokio-1.38.x/tokio/src/sync/notify.rs#L201">Notify</a>上. <code>Notify</code>管理事件的结构也是链表, &quot;用链表管理事件&quot;这一点上倒是差别不大.</li>
+<li>使用B树维护槽位, 因为时间的跨度大致在一定范围内, 所以可以使用区间跨度都一样的槽位, 而且槽位的数量可以控制在一定范围内. 用B树实现增删和排序, 相对来说比较简单.</li>
+</ul>
+<h3 id="1-4-yu-yun-xing-shi-de-xie-zuo">1.4 与运行时的协作</h3>
+<ul>
+<li>在tokio里, 维护时间事件的是时间轮, 时间轮会把最近就绪的时间告诉事件循环, 事件循环利用超时时间这个参数&quot;阻塞&quot;在<code>poll</code>上, 从而把时间事件和其他事件统一起来.</li>
+<li>在pingora里, 维护时间事件的是B树, 后台有专门一个检查线程. 检查线程每10毫秒会取出最近的<code>Notify</code>, 判断事件触发的时间, 唤醒所有&quot;阻塞&quot;在这里的任务. </li>
+</ul>
+<h2 id="2-chao-shi-shi-jian">2. 超时事件</h2>
+<h3 id="2-1-tokiode-chao-shi-shi-jian">2.1 Tokio的超时事件</h3>
+<pre data-lang="rust" style="background-color:#272822;color:#f8f8f2;" class="language-rust "><code class="language-rust" data-lang="rust"><span style="color:#f92672;">pub </span><span style="font-style:italic;color:#66d9ef;">struct </span><span>Timeout&lt;T&gt; {
+</span><span>  value: T,
+</span><span>  delay: Sleep, 
+</span><span>}
+</span><span>
+</span><span style="font-style:italic;color:#66d9ef;">impl</span><span>&lt;T&gt; Future </span><span style="color:#f92672;">for </span><span>Timeout&lt;T&gt; {
+</span><span>  </span><span style="font-style:italic;color:#66d9ef;">fn </span><span style="color:#a6e22e;">poll</span><span>(</span><span style="font-style:italic;color:#fd971f;">self</span><span>: Pin&lt;</span><span style="color:#f92672;">&amp;mut </span><span style="font-style:italic;color:#66d9ef;">Self</span><span>&gt;...) -&gt; {
+</span><span>    </span><span style="color:#75715e;">// 推动业务任务
+</span><span>    </span><span style="color:#f92672;">if </span><span style="font-style:italic;color:#66d9ef;">let </span><span>Poll::Ready(v) </span><span style="color:#f92672;">=</span><span> me.value.</span><span style="color:#66d9ef;">poll</span><span>(cx) {
+</span><span>      </span><span style="color:#f92672;">return </span><span>Poll::Ready(</span><span style="font-style:italic;color:#66d9ef;">Ok</span><span>(v));
+</span><span>    }
+</span><span>    </span><span style="color:#75715e;">// 推动休眠任务
+</span><span>    </span><span style="color:#f92672;">match</span><span> delay.</span><span style="color:#66d9ef;">poll</span><span>(cx) {
+</span><span>      Poll::Ready(()) </span><span style="color:#f92672;">=&gt; </span><span>Poll::Ready(</span><span style="font-style:italic;color:#66d9ef;">Err</span><span>(Elapsed::new())),
+</span><span>      Poll::Pending </span><span style="color:#f92672;">=&gt; </span><span>Poll::Pending,
+</span><span>    }
+</span><span>  }
+</span><span>}
+</span></code></pre>
+<p>tokio里的超时事件<code>Timeout</code>是利用休眠事件<code>Sleep</code>实现的, 第一次调用<code>poll</code>(通常是await)时, 业务任务<code>value</code>和休眠任务<code>delay</code>被&quot;同时&quot;启动.</p>
+<p>这两个任务中有任何一个完成, <code>poll</code>就会再次被调用. 如果就绪的是业务任务, 那返回最终结果; 如果就绪的是休眠任务, 返回超时错误. 到此, <code>Timeout</code>执行完毕, 会被丢弃.</p>
+<h3 id="2-2-pingorade-chao-shi-shi-jian">2.2 Pingora的超时事件</h3>
+<pre data-lang="rust" style="background-color:#272822;color:#f8f8f2;" class="language-rust "><code class="language-rust" data-lang="rust"><span style="color:#f92672;">pub </span><span style="font-style:italic;color:#66d9ef;">struct </span><span>Timeout&lt;T, F&gt; {
+</span><span>  value: T,
+</span><span>  delay: </span><span style="font-style:italic;color:#66d9ef;">Option</span><span>&lt;Future&gt;,
+</span><span>  callback: ToTimeout
+</span><span>}
+</span><span>
+</span><span style="font-style:italic;color:#66d9ef;">impl</span><span>&lt;T, F&gt; Future </span><span style="color:#f92672;">for </span><span>Timeout&lt;T, F&gt; {
+</span><span>  </span><span style="font-style:italic;color:#66d9ef;">fn </span><span style="color:#a6e22e;">poll</span><span>(</span><span style="font-style:italic;color:#fd971f;">self</span><span>: Pin&lt;</span><span style="color:#f92672;">&amp;mut </span><span style="font-style:italic;color:#66d9ef;">Self</span><span>&gt;...) -&gt;   {
+</span><span>    </span><span style="color:#f92672;">if </span><span style="font-style:italic;color:#66d9ef;">let </span><span>Poll::Ready(v) </span><span style="color:#f92672;">=</span><span> me.value.</span><span style="color:#66d9ef;">poll</span><span>(cx) {
+</span><span>        </span><span style="color:#f92672;">return </span><span>Poll::Ready(</span><span style="font-style:italic;color:#66d9ef;">Ok</span><span>(v));
+</span><span>    }
+</span><span>    </span><span style="color:#75715e;">// 惰性创建休眠任务
+</span><span>    </span><span style="font-style:italic;color:#66d9ef;">let</span><span> delay </span><span style="color:#f92672;">=</span><span> me.delay.
+</span><span>      </span><span style="color:#66d9ef;">get_or_insert_with</span><span>(|| </span><span style="font-style:italic;color:#66d9ef;">Box</span><span>::pin(me.callback.</span><span style="color:#66d9ef;">timeout</span><span>()));
+</span><span>    </span><span style="color:#f92672;">match</span><span> delay.</span><span style="color:#66d9ef;">as_mut</span><span>().</span><span style="color:#66d9ef;">poll</span><span>(cx) {
+</span><span>        Poll::Pending </span><span style="color:#f92672;">=&gt; </span><span>Poll::Pending,
+</span><span>        Poll::Ready(()) </span><span style="color:#f92672;">=&gt; </span><span>Poll::Ready(</span><span style="font-style:italic;color:#66d9ef;">Err</span><span>(Elapsed {})),
+</span><span>    }
+</span><span>  }
+</span><span>}
+</span></code></pre>
+<p>pingora里的超时任务和上面的有两个区别, 一是休眠任务<code>delay</code>是惰性创建的, 在实际调用<code>poll</code>时才创建. 二是休眠任务是调用<code>callback</code>的<code>timeout()</code>方法创建的.</p>
+<p>这里的<code>dealy</code>和<code>callback</code>就相对于是糊的胶水层, 使得pingora既可以支持tokio原生的超时事件<code>TokioTimeout</code>, 也可以是自定义的超时事件<code>FastTimeout</code>.</p>
+<h3 id="2-3-tokiotimeoutchao-shi-shi-jian">2.3 TokioTimeout超时事件</h3>
+<pre data-lang="rust" style="background-color:#272822;color:#f8f8f2;" class="language-rust "><code class="language-rust" data-lang="rust"><span style="color:#f92672;">pub </span><span style="font-style:italic;color:#66d9ef;">struct </span><span>TokioTimeout(Duration);
+</span><span>
+</span><span style="font-style:italic;color:#66d9ef;">fn </span><span style="color:#a6e22e;">timeout</span><span>(</span><span style="color:#f92672;">&amp;</span><span style="font-style:italic;color:#fd971f;">self</span><span>) -&gt; BoxFuture&lt;</span><span style="color:#f92672;">&#39;static</span><span>, ()&gt; {
+</span><span>  </span><span style="font-style:italic;color:#66d9ef;">Box</span><span>::pin(</span><span style="color:#66d9ef;">tokio_sleep</span><span>(self.</span><span style="color:#ae81ff;">0</span><span>))
+</span><span>}
+</span></code></pre>
+<p><code>TokioTimout</code>内部调用了tokio的<code>sleep</code>函数, 这个类型的超时事件是交给tokio里的时间轮管理的.</p>
+<h3 id="2-4-fasttimeoutchao-shi-shi-jian">2.4 FastTimeout超时事件</h3>
+<pre data-lang="rust" style="background-color:#272822;color:#f8f8f2;" class="language-rust "><code class="language-rust" data-lang="rust"><span style="color:#f92672;">pub </span><span style="font-style:italic;color:#66d9ef;">struct </span><span>FastTimeout(Duration);
+</span><span>
+</span><span style="font-style:italic;color:#66d9ef;">fn </span><span style="color:#a6e22e;">timeout</span><span>(</span><span style="color:#f92672;">&amp;</span><span style="font-style:italic;color:#fd971f;">self</span><span>) -&gt; BoxFuture&lt;</span><span style="color:#f92672;">&#39;static</span><span>, ()&gt; {
+</span><span>  </span><span style="font-style:italic;color:#66d9ef;">Box</span><span>::pin(</span><span style="color:#ae81ff;">TIMER_MANAGER</span><span>.</span><span style="color:#66d9ef;">register_timer</span><span>(self.</span><span style="color:#ae81ff;">0</span><span>).</span><span style="color:#66d9ef;">poll</span><span>())
+</span><span>}
+</span></code></pre>
+<p><code>FastTimeout</code>会由<code>TIMER_MANAGER</code>管理, 放到10毫秒跨度的槽位里, 然后后台线程会周期性检查有没有有到时间的槽位, 如果就唤醒里面所有的事件.</p>
+<h2 id="3-pingorashi-jian-shi-jian-guan-li">3. Pingora时间事件管理</h2>
+<h3 id="3-1-shi-jian-guan-li-timermanager">3.1 事件管理TimerManager</h3>
+<pre data-lang="rust" style="background-color:#272822;color:#f8f8f2;" class="language-rust "><code class="language-rust" data-lang="rust"><span style="color:#f92672;">pub </span><span style="font-style:italic;color:#66d9ef;">struct </span><span>TimerManager {
+</span><span>  timers: ThreadLocal&lt;RwLock&lt;BTreeMap&lt;Time, Timer&gt;&gt;&gt;,
+</span><span>  zero: Instant, 
+</span><span>}
+</span><span>
+</span><span style="font-style:italic;color:#66d9ef;">static </span><span style="color:#ae81ff;">TIMER_MANAGER</span><span>: Lazy&lt;Arc&lt;TimerManager&gt;&gt; </span><span style="color:#f92672;">= </span><span>Lazy::new(|| {
+</span><span>  </span><span style="font-style:italic;color:#66d9ef;">let</span><span> tm </span><span style="color:#f92672;">= </span><span>Arc::new(TimerManager::new());
+</span><span>  </span><span style="color:#75715e;">// 启动后台检查线程
+</span><span>  </span><span style="color:#66d9ef;">check_clock_thread</span><span>(</span><span style="color:#f92672;">&amp;</span><span>tm);
+</span><span>  tm
+</span><span>});
+</span></code></pre>
+<p>管理时间事件的数据结构是<code>TimerManager</code>, 这里的<code>timers</code>就是存储10毫秒槽位的地方. 由于是<code>ThreadLocal</code>类型的, 所以每个线程里都自己有一份.</p>
+<p>虽然<code>timers</code>是线程隔离的, 但还有下面要讲到的后台检查线程, 这个线程也会对时间事件进行读写, 所以这里加了一把<code>RwLock</code>. 并不是完全无锁的, 但在粒度上确实是小了.</p>
+<h3 id="3-2-hou-tai-jian-cha-xian-cheng">3.2 后台检查线程</h3>
+<pre data-lang="rust" style="background-color:#272822;color:#f8f8f2;" class="language-rust "><code class="language-rust" data-lang="rust"><span style="font-style:italic;color:#66d9ef;">fn </span><span style="color:#a6e22e;">check_clock_thread</span><span>(</span><span style="font-style:italic;color:#fd971f;">tm</span><span>: </span><span style="color:#f92672;">&amp;</span><span>Arc&lt;TimerManager&gt;) {
+</span><span>  std::thread::Builder::new()
+</span><span>    .</span><span style="color:#66d9ef;">spawn</span><span>(|| </span><span style="color:#ae81ff;">TIMER_MANAGER</span><span>.</span><span style="color:#66d9ef;">clock_thread</span><span>())
+</span><span>    .</span><span style="color:#66d9ef;">unwrap</span><span>();
+</span><span>}
+</span></code></pre>
+<p>创建的<code>TimerManager</code>的时候, 会创建后台线程, 线程要执行的方法是<code>check_clock_thread</code>.</p>
+<pre data-lang="rust" style="background-color:#272822;color:#f8f8f2;" class="language-rust "><code class="language-rust" data-lang="rust"><span style="color:#f92672;">pub</span><span>(</span><span style="color:#f92672;">crate</span><span>) </span><span style="font-style:italic;color:#66d9ef;">fn </span><span style="color:#a6e22e;">clock_thread</span><span>(</span><span style="color:#f92672;">&amp;</span><span style="font-style:italic;color:#fd971f;">self</span><span>) {
+</span><span>  </span><span style="color:#f92672;">loop </span><span>{
+</span><span>    </span><span style="color:#75715e;">// 周期执行, 间隔10毫秒
+</span><span>    std::thread::sleep(</span><span style="color:#ae81ff;">RESOLUTION_DURATION</span><span>);
+</span><span>    </span><span style="color:#75715e;">// 遍历不同所有线程里的timer
+</span><span>    </span><span style="color:#f92672;">for</span><span> thread_timer </span><span style="color:#f92672;">in </span><span>self.timers.</span><span style="color:#66d9ef;">iter</span><span>() {
+</span><span>      </span><span style="color:#f92672;">loop </span><span>{
+</span><span>        </span><span style="color:#f92672;">...
+</span><span>        </span><span style="color:#75715e;">// 已经到触发时间槽位
+</span><span>        </span><span style="font-style:italic;color:#66d9ef;">let</span><span> timer </span><span style="color:#f92672;">=</span><span> timers.</span><span style="color:#66d9ef;">remove</span><span>(</span><span style="color:#f92672;">&amp;</span><span>k);
+</span><span>        timer.</span><span style="color:#66d9ef;">unwrap</span><span>().</span><span style="color:#66d9ef;">fire</span><span>();
+</span><span>      }
+</span><span>    }
+</span><span>  }
+</span><span>}
+</span></code></pre>
+<p><code>check_clock_thread</code>的逻辑并不复杂, <code>sleep(10ms)</code>大约每10毫秒执行一次. 时间事件维护在每个线程自己的的B树里, 而<code>timers.iter()</code>方法会遍历所有线程的里的B树.</p>
+<p>然后在每个线程的时间事件树上, 找到已经到了触发时间的槽位, 调用<code>Notify.notify_waiters()</code>方法, 唤醒&quot;阻塞&quot;在这些槽位上的所有事件.</p>
+<p>pingora自定义的超时事件由事件<code>FastTimeout</code>, 事件管理<code>TimerManager</code>, 后台线程<code>check_clock_thread</code>构成. 这三部分互相配合, 替代了tokio原生时间轮的位置.</p>
+<h2 id="4-xiao-jie">4. 小结</h2>
+<p>在我自己的计算机上跑基准测试, 用<code>cargo bench</code>运行<code>benchmark.rs</code>, 但得到的数据并不那么&quot;漂亮&quot;. 这可能是因为基准测试里的用例很&quot;死板&quot;, 和实际情况有很大出入.</p>
+<p>不过, 如何替换tokio的时间事件管理机制, pingora的做法为我们提供了思路. 在某些条件下, 如果有必要, 我们也可以尝试定制自己的时间管理机制, 达到特定场景下的优化.</p>
+</br>
+<p><em>-&gt; 如果文章有不足之处或者有改进的建议，可以在<a rel="noopener" target="_blank" href="https://github.com/dlzht/dlzht.github.io/discussions/12">这边</a>告诉我，也可以发送给我的<a href="mailto:dlzht@protonmail.com">邮箱</a></em></p>
+
+        </div>
+
+        
+        <div class="pagination">
+            <!-- <div class="pagination__title"> -->
+                <!-- <span class="pagination__title-h">++</span> -->
+                <!-- <hr /> -->
+            <!-- </div> -->
+            <div class="pagination__buttons">
+                    <span class="button previous">
+                        <a href="https://dlzht.github.io/016-tokioshi-jian-lun-jie-gou/">
+                            <span class="button__icon">←</span>&nbsp;
+                            <span class="button__text">Tokio的时间轮结构</span>
+                        </a>
+                    </span>
+                
+                </div>
+        </div>
+    
+    </div>
+
+    </div>
+
+    
+    <footer class="footer">
+        <div class="footer__inner">
+                <div class="copyright copyright--user">Email:&nbsp;<a href=mailto:dlzht@protonmail.com>dlzht@protonmail.com</a></div>
+            </div>
+    </footer>
+    
+
+</div>
+</body>
+
+</html>

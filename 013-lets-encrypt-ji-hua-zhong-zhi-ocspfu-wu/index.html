@@ -1,0 +1,216 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <script async src="https://www.googletagmanager.com/gtag/js?id=G-Q8CTC2C6DM"></script>
+    <script>
+        window.dataLayer = window.dataLayer || [];
+        function gtag(){dataLayer.push(arguments);}
+        gtag('js', new Date());
+        gtag('config', 'G-Q8CTC2C6DM');
+    </script>
+
+    <title></title>
+    
+    <meta http-equiv="content-type" content="text/html; charset=utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1">
+    <meta name="robots" content="noodp"/>
+
+    <link rel="stylesheet" href="https://dlzht.github.io/style.css">
+    <link rel="stylesheet" href="https://dlzht.github.io/color/blue-light.css">
+
+        <link rel="stylesheet" href="https://dlzht.github.io/color/background_light.css">
+    
+    <link rel="stylesheet" href="https://dlzht.github.io/font-hack-subset.css">
+
+    <meta name="description" content="">
+
+    <meta property="og:description" content="">
+    <meta property="og:title" content="">
+    <meta property="og:type" content="article">
+    <meta property="og:url" content="https://dlzht.github.io/013-lets-encrypt-ji-hua-zhong-zhi-ocspfu-wu/">
+
+    <meta name="twitter:card" content="summary_large_image">
+    <meta name="twitter:description" content="">
+    <meta name="twitter:title" content="">
+    <meta property="twitter:domain" content="dlzht.github.io">
+    <meta property="twitter:url" content="https://dlzht.github.io/013-lets-encrypt-ji-hua-zhong-zhi-ocspfu-wu/">
+
+    </head>
+
+<body class="">
+<div class="container">
+    
+    <header class="header">
+        <div class="header__inner">
+            <div class="header__logo">
+                    
+                <a href="https://dlzht.github.io" style="text-decoration: none;">
+                    <div class="logo">
+                      
+                            QianQi dlzht@protonmail.com
+                        
+                    </div>
+                </a>
+            </div>
+        </div>
+
+        
+        
+                <nav class="menu">
+            <ul class="menu__inner">
+                <li class="active"><a href="https://dlzht.github.io">主页</a></li>
+            
+                <li><a href="https://dlzht.github.io/tags">标签</a></li>
+            
+                <li><a href="https://dlzht.github.io/about">关于</a></li>
+            
+                <li><a href="https://dlzht.github.io/archive">归档</a></li>
+            </ul>
+        </nav>
+    
+    
+        
+    </header>
+    
+
+    <div class="content">
+        
+    <div class="post">
+        
+    <h1 class="post-title"><a href="https://dlzht.github.io/013-lets-encrypt-ji-hua-zhong-zhi-ocspfu-wu/">Let&#x27;s Encrypt计划终止OCSP服务</a></h1>
+    <div class="post-meta-inline">
+        
+    <span class="post-date">
+            2024-07-25
+        </span>
+
+    </div>
+
+    
+        <span class="post-tags-inline">
+                :: tags:&nbsp;
+                <a class="post-tag" href="https://dlzht.github.io/tags/za-wen/">#杂文</a></span>
+    
+
+        <div class="post-content">
+            <p>今天看到了Let's Encrypt计划将终止OCSP服务, 转而启用CRL服务的文章<a rel="noopener" target="_blank" href="https://letsencrypt.org/2024/07/23/replacing-ocsp-with-crls.html">Intent to End OCSP Service</a>. 想起了当年Let's Encrypt宣布提供免费的3个月证书, 一改域名证书垄断高价的局面, 再加上犀利的<a rel="noopener" target="_blank" href="https://github.com/acmesh-official/acme.sh">acme.sh</a>脚本, 可以说是造福了无数个人开发者和站长. 今天也写一写OCSP的内容, 重温一下那时岁月.</p>
+<span id="continue-reading"></span><h2 id="shu-zi-zheng-shu">数字证书</h2>
+<p>了解OCSP和CRL之前, 我们先简单了解下数字证书, Let's Encrypt主要是签发的域名证书, 我们这边也以域名证书为例.</p>
+
+  
+  
+    
+    
+  
+  <img src="https://dlzht.github.io/image/013_01.png" alt="image 404" class="center" decoding="async" loading="lazy"/>
+
+<p>首先, 只有权威机构CA颁发的数字证书, 我们的浏览器才会默认信任(可以手动添加). 数字证书里包含了CA的数字签名, 是无法伪造和篡改的.</p>
+<p>其次, 数字证书里包含域名和密钥信息, CA签发出来了证书, 就相当于在做证明, 拥有这个域名控制权的人, 也拥有这个密钥的控制权.</p>
+
+  
+  
+    
+    
+  
+  <img src="https://dlzht.github.io/image/013_02.png" alt="image 404" class="center" decoding="async" loading="lazy"/>
+
+<p>我们可以直接在浏览器里看网站的证书, 比如用Firefox打开<code>github</code>, 点击地址栏旁边的小锁, 选择<code>安全连接 -&gt; 更多信息 -&gt; 查看证书</code>.</p>
+<p>在TLS握手环节中, 数字证书可以证明, 对面和我们握手的, 确实是这个域名下的服务器, 而不是什么中间人假冒的, 数字证书是互联网安全中非常重要的一环.</p>
+<h2 id="ocsphe-crl">OCSP和CRL</h2>
+<p><a rel="noopener" target="_blank" href="https://en.wikipedia.org/wiki/Online_Certificate_Status_Protocol">OCSP</a>(在线证书状态协议)和<a rel="noopener" target="_blank" href="https://en.wikipedia.org/wiki/Certificate_revocation_list">CRL</a>(证书吊销列表)是CA提供的&quot;公共&quot;服务, 目地在于提供实时查询证书的状态的能力. 上面的<code>github</code>证书信息里的<code>AIA</code>一项, 就告诉了我们应该去哪里查询这张证书的OCSP和CRL信息.</p>
+<p>证书本身是包含了有效期的, 说明了证书在什么时间段是有效的. 但还有其他的情况需要让证书失效, 比如说客户的私钥失窃了, 或者CA一是疏忽发错了证书, 或者某些证书存在算法漏洞等等.</p>
+<p>所以CA提供了证书吊销的机制, 尽管证书此时可能还在有效期内, 但已经不能被信任了. 已经发出去的证书文件没办法保证全部收回的, 所以CA要提供实时查询证书状态的服务.</p>
+
+  
+  
+    
+    
+  
+  <img src="https://dlzht.github.io/image/013_03.png" alt="image 404" class="center" decoding="async" loading="lazy"/>
+
+<p>当向CA发起CRL查询的时候, CA返回的是一个吊销列表, 里面包含了很多被吊销的证书. 我们要验证某张证书是不是被吊销了, 就看这张证书在不在这个列表中. </p>
+
+  
+  
+    
+    
+  
+  <img src="https://dlzht.github.io/image/013_04.png" alt="image 404" class="center" decoding="async" loading="lazy"/>
+
+<p>而发起OCSP请求的时候, 我们指明要查询的哪张证书, CA也就返回这张证书的状态. 当然, 这边返回状态不止已吊销或未吊销, 还有OCSP服务内部错误, 请求数据有问题等等状态.</p>
+<h2 id="ocspde-you-lie">OCSP的优劣</h2>
+<ol>
+<li>
+<p>OCSP服务段隐私安全问题, 当用户向CA提交OCSP请求的时候, OCSP服务就知道了用户要访问的是什么网站. 出于一些原因, 服务端可能会主动或被迫地记录下相关信息, 这对用户来说就存在隐私风险.</p>
+</li>
+<li>
+<p>网络传输过程中信息泄露, 因为OCSP协议没有强制加密传输, 所以用户向OSCP服务端发起查询时, 通过网络监听或者中间人攻击等手段, 域名这样的信息就可能泄露了.</p>
+</li>
+<li>
+<p>OCSP的优势在于只查询某张证书, 所以响应包会比较小, 解析起来也更容易. PDF数字签名开启LTV时, 也可以把OCSP响应写入到签名数据中, 而不会导致文件体积暴增.</p>
+</li>
+</ol>
+<h2 id="ocspzhuang-ding-stapling">OCSP装订(Stapling)</h2>
+<p>OCSP装订解决了OCSP存在的一些的问题, 简单来说, 就是服务器会缓存OCSP查询的结果, 然后当客户端来TLS握手时, 就合在证书里一起发出去, 这样另一端就不需要再去查询OCSP了.</p>
+<p>这样的好处是, 一方面, 省去了客户端查询OCSP的时间, 用户可以更快地得到响应; 另一方面, 客户端不需要和OCSP服务交互, 也就没有了上面的隐私安全问题, 还减少了网络问题带来的不可用(比如某个CA突然被屏蔽了).</p>
+<p>nginx里开启OCSP Stapling:</p>
+<pre data-lang="txt" style="background-color:#272822;color:#f8f8f2;" class="language-txt "><code class="language-txt" data-lang="txt"><span>server {
+</span><span>  ssl_stapling on;
+</span><span>  ssl_stapling_verify on;
+</span><span>}
+</span></code></pre>
+<p>CloudFlare提供的支持: <a rel="noopener" target="_blank" href="https://blog.cloudflare.com/high-reliability-ocsp-stapling">https://blog.cloudflare.com/high-reliability-ocsp-stapling</a></p>
+<h2 id="zhong-zhi-ocspfu-wu">终止OCSP服务</h2>
+<p>停止OCSP服务的一个原因, Let's Encrypt在文章里提到, 一个是资源开销问题, 在2023年的另一篇文章里有提到, 当时其服务的域名就超过了3亿, 每秒需要响应10万OCSP请求, 无疑这需要的计算和带宽资源都不小.</p>
+<p>虽然OCSP装订在某种程度上可以缓解CA的负担, 但Staplig需要站长侧那边开启, CA侧并没有主动权. 不知道是不是Stapling带来的效果并不够, 导致从资源方面考虑还是偏向了CRL方案.</p>
+<blockquote>
+<p>Even when a CA intentionally does not retain this information, as is the case with Let’s Encrypt, CAs could be legally compelled to collect it. CRLs do not have this issue</p>
+</blockquote>
+<p>另一个原因是隐私泄露, 在现今审核越来越严, 限制越来越多的局势下, 真的要保护用户隐私, &quot;做不到&quot;确实也是一种没办法的办法. 我提供的是CRL, 我不知道用户要访问的是什么网站, 从技术上我没办法知道的, 是这样的.</p>
+<p>至于Let's Encrypt为什么要采用CRL方案, 其中原因也不揣测, 就这样了. CRL也一样能用的, 而且现在的浏览器对证书验证都有容错机制, 所以对于web服务的影响应该不会太大.</p>
+</br>
+<p><em>-&gt; 如果文章有不足之处或者有改进的建议，可以在<a rel="noopener" target="_blank" href="https://github.com/dlzht/dlzht.github.io/discussions/12">这边</a>告诉我，也可以发送给我的<a href="mailto:dlzht@protonmail.com">邮箱</a></em></p>
+
+        </div>
+
+        
+        <div class="pagination">
+            <!-- <div class="pagination__title"> -->
+                <!-- <span class="pagination__title-h">++</span> -->
+                <!-- <hr /> -->
+            <!-- </div> -->
+            <div class="pagination__buttons">
+                    <span class="button previous">
+                        <a href="https://dlzht.github.io/012-rustxia-sm4-aes-rsajia-jie-mi/">
+                            <span class="button__icon">←</span>&nbsp;
+                            <span class="button__text">Rust下SM4&#x2F;AES&#x2F;RSA加解密</span>
+                        </a>
+                    </span>
+                
+                
+                    <span class="button next">
+                        <a href="https://dlzht.github.io/014-ji-suan-ji-li-de-shi-jian/">
+                            <span class="button__text">计算机里的时间</span>&nbsp;
+                            <span class="button__icon">→</span>
+                        </a>
+                    </span>
+                </div>
+        </div>
+    
+    </div>
+
+    </div>
+
+    
+    <footer class="footer">
+        <div class="footer__inner">
+                <div class="copyright copyright--user">Email:&nbsp;<a href=mailto:dlzht@protonmail.com>dlzht@protonmail.com</a></div>
+            </div>
+    </footer>
+    
+
+</div>
+</body>
+
+</html>

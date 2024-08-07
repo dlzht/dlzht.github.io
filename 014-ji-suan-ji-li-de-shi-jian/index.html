@@ -1,0 +1,287 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <script async src="https://www.googletagmanager.com/gtag/js?id=G-Q8CTC2C6DM"></script>
+    <script>
+        window.dataLayer = window.dataLayer || [];
+        function gtag(){dataLayer.push(arguments);}
+        gtag('js', new Date());
+        gtag('config', 'G-Q8CTC2C6DM');
+    </script>
+
+    <title></title>
+    
+    <meta http-equiv="content-type" content="text/html; charset=utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1">
+    <meta name="robots" content="noodp"/>
+
+    <link rel="stylesheet" href="https://dlzht.github.io/style.css">
+    <link rel="stylesheet" href="https://dlzht.github.io/color/blue-light.css">
+
+        <link rel="stylesheet" href="https://dlzht.github.io/color/background_light.css">
+    
+    <link rel="stylesheet" href="https://dlzht.github.io/font-hack-subset.css">
+
+    <meta name="description" content="">
+
+    <meta property="og:description" content="">
+    <meta property="og:title" content="">
+    <meta property="og:type" content="article">
+    <meta property="og:url" content="https://dlzht.github.io/014-ji-suan-ji-li-de-shi-jian/">
+
+    <meta name="twitter:card" content="summary_large_image">
+    <meta name="twitter:description" content="">
+    <meta name="twitter:title" content="">
+    <meta property="twitter:domain" content="dlzht.github.io">
+    <meta property="twitter:url" content="https://dlzht.github.io/014-ji-suan-ji-li-de-shi-jian/">
+
+    </head>
+
+<body class="">
+<div class="container">
+    
+    <header class="header">
+        <div class="header__inner">
+            <div class="header__logo">
+                    
+                <a href="https://dlzht.github.io" style="text-decoration: none;">
+                    <div class="logo">
+                      
+                            QianQi dlzht@protonmail.com
+                        
+                    </div>
+                </a>
+            </div>
+        </div>
+
+        
+        
+                <nav class="menu">
+            <ul class="menu__inner">
+                <li class="active"><a href="https://dlzht.github.io">主页</a></li>
+            
+                <li><a href="https://dlzht.github.io/tags">标签</a></li>
+            
+                <li><a href="https://dlzht.github.io/about">关于</a></li>
+            
+                <li><a href="https://dlzht.github.io/archive">归档</a></li>
+            </ul>
+        </nav>
+    
+    
+        
+    </header>
+    
+
+    <div class="content">
+        
+    <div class="post">
+        
+    <h1 class="post-title"><a href="https://dlzht.github.io/014-ji-suan-ji-li-de-shi-jian/">计算机里的时间</a></h1>
+    <div class="post-meta-inline">
+        
+    <span class="post-date">
+            2024-07-26
+        </span>
+
+    </div>
+
+    
+        <span class="post-tags-inline">
+                :: tags:&nbsp;
+                <a class="post-tag" href="https://dlzht.github.io/tags/za-wen/">#杂文</a></span>
+    
+
+        <div class="post-content">
+            <p>这两天看到<a rel="noopener" target="_blank" href="https://github.com/BurntSushi">BurntSushi</a>新发布了<a rel="noopener" target="_blank" href="https://github.com/BurntSushi/jiff">jiff</a>时间库, 不禁回想起之前的Java项目中, 老态龙钟的Date依然大行其道的局面, 尽管在JDK1.8就包含了新的时间API. 这其实也从侧面说明, 设计好用的时间库并非易事. 这篇文章主要讲有关计算机时间的内容, 为什么时间很复杂.</p>
+<span id="continue-reading"></span><h2 id="shi-jian-shi-zen-yao-du-liang-de">时间是怎么度量的</h2>
+<p>时间是从哪里开始的, 流逝的方向又是什么, 这些既是科学, 又是哲学, 还是神学的问题, 我们不清楚答案. 聪明的&quot;我们&quot;虽然搞不清时间的本质, 但这并不妨碍我们度量时间, 而其中的关键就在于找到度量的单位.</p>
+
+  
+  
+    
+    
+  
+  <img src="https://dlzht.github.io/image/014_01.png" alt="image 404" class="center" decoding="async" loading="lazy"/>
+
+<p>回想一下质量是怎么被度量的, 我记得之前教科书上有张&quot;国际千克原器&quot;的图, 就是放在钟形容器的那块砝码. 这块砝码是质量的度量单位&quot;千克&quot;, 在要称量其他物品时, 只要和这块砝码做比较, 知道有几个砝码那么重就可以了. </p>
+<p>那时间的度量也应是如此, 我们要找到度量的单位, 然后其他的时间段的&quot;长度&quot;, 只要和这个时间单位比较一下就好了. 我们找到的这个时间单位, 就是一些规律的, 周期性的事件, 从细沙的流逝到机械的嘀嗒, 从星球的转动到原子的跃迁.</p>
+<p>地球公转一周, 就有一年; 地球自转一圈, 就有一天. 为了更精确地表达时间, 再把这些度量单位进一步地细化切分, 1天分成24小时, 1小时再分成60分钟, 1分钟再分成60秒, 从秒再分毫秒, 还有微妙, 纳秒, 皮秒.</p>
+<h2 id="wo-men-shi-yong-de-shi-jian">我们使用的时间</h2>
+<pre data-lang="txt" style="background-color:#272822;color:#f8f8f2;" class="language-txt "><code class="language-txt" data-lang="txt"><span>2024-01-01 02:03:09
+</span><span>\__/ \/ \/ \_____/
+</span><span> 年  月  日  时分秒 
+</span></code></pre>
+<p>我们日常使用的是上面这样的格式, 在全球范围内都是如此. 虽年月日顺序可能有所区别, 但总体上差不太多. 这种 日期+时间 的格式被称为本地时间, PlainTime, CivilTime, NativeTime, LocalTime等等, 在代码会遇到不同的名称, 但大差不差, 都是指这种时间格式. </p>
+<p>本地时间是偏向于自然规律, 偏向于生活作息的时间, 差不多06:00该日出, 而18:00的时候应该要日落了, 中午的时间是12:00, 午夜的时间是00:00. 大家(当然有些地区比较特别, 比如高纬度区域)都是这么认为的, 不管是东半球的人们, 还是西半球的人们.</p>
+<h2 id="ji-suan-ji-li-de-shi-jian">计算机里的时间</h2>
+
+  
+  
+    
+    
+  
+  <img src="https://dlzht.github.io/image/014_02.png" alt="image 404" class="center" decoding="async" loading="lazy"/>
+
+<p>来到计算机世界, 一方面很多计算机都会配有硬件时钟. 硬件时钟的原理在于, 其晶体振荡一次相当于多少秒是确定的, 所以以这种周期性的振荡为时间单位, 乘上振荡过的次数可以换算到秒了. 而且晶体振荡的频率很高, 所以硬件时钟的精度远高于秒.</p>
+<pre data-lang="bash" style="background-color:#272822;color:#f8f8f2;" class="language-bash "><code class="language-bash" data-lang="bash"><span style="color:#f92672;">=&gt;</span><span> sudo hwclock</span><span style="font-style:italic;color:#fd971f;"> -v
+</span><span>hwclock from util-linux 2.40.2
+</span><span>System Time: 1721962835.492649
+</span><span>... 
+</span><span>2024-07-26 11:00:35.466318+08:00
+</span></code></pre>
+<p>Linux下, 可以用<code>hwclock</code>来查看或配置硬件时钟. 硬件时钟通常有单独的电池供电, 所以计算机关机或者拔掉电源后, 也还能继续工作. 下次开机的时候, 系统的时间依然是正常的.</p>
+<p>另一方面计算机还配有&quot;网络时钟&quot;, 能通过网络时间协议NTP(Network Time Protocol)来校正自己的时间. NTP的时间源头是全世界几百台原子钟的共识, 这里的周期性事件是原子的跃迁, 共同决定了秒的&quot;长度&quot;, <a rel="noopener" target="_blank" href="https://en.wikipedia.org/wiki/Atomic_clock">wiki Atimic Clock</a>上给出的近代原子钟的精度可以达到2*10<sup>-16</sup>.</p>
+<p>如此广泛的共识, 加上如此高的精度, 确实厉害. Arch开启NTP可以参考<a rel="noopener" target="_blank" href="https://wiki.archlinux.org/title/Network_Time_Protocol_daemon">Network_Time_Protocol</a>. windows的话在日期时间配置面板上, 勾选<code>与Internet时间服务器同步</code>就可以了.</p>
+<p>NTP通过网络把&quot;标准&quot;时间传递出去, 五花八门的计算机们就可以校准自己的时钟到一个&quot;准确&quot;的时间了. 当然, 由于网络延迟等问题的存在, 虽然NTP协议有考虑到这些因素, 但最终校准出来的时间肯定是会丢失很多精度的.</p>
+<pre data-lang="c" style="background-color:#272822;color:#f8f8f2;" class="language-c "><code class="language-c" data-lang="c"><span style="font-style:italic;color:#66d9ef;">int </span><span style="color:#a6e22e;">clock_gettime</span><span>(clockid_t </span><span style="font-style:italic;color:#fd971f;">clockid</span><span>, </span><span style="font-style:italic;color:#66d9ef;">struct</span><span> timespec </span><span style="color:#f92672;">*</span><span style="font-style:italic;color:#fd971f;">tp</span><span>);
+</span><span>
+</span><span style="font-style:italic;color:#66d9ef;">struct </span><span>timespec {
+</span><span>  </span><span style="font-style:italic;color:#66d9ef;">time_t</span><span>   tv_sec;   </span><span style="color:#75715e;">// 秒
+</span><span>  </span><span style="font-style:italic;color:#66d9ef;">long</span><span>     tv_nsec;  </span><span style="color:#75715e;">// 纳秒
+</span><span>};
+</span></code></pre>
+<p>Linux提供了<code>clock_gettime</code>这个系统调用来获取当前的系统时间, 返回的<code>timespec</code>里的字段, 指的是从<code>Epoch</code>(1970-01-01 00:00:00Z)开始到现在经历的秒和纳秒数. 计算机提供给我们的就是这个时间, 也就是大名鼎鼎的时间戳, 上面<code>hwclock</code>的执行结果里有这个值.</p>
+<pre data-lang="rust" style="background-color:#272822;color:#f8f8f2;" class="language-rust "><code class="language-rust" data-lang="rust"><span style="color:#75715e;">// jiff::Timestamp::now()
+</span><span style="color:#f92672;">pub </span><span style="font-style:italic;color:#66d9ef;">fn </span><span style="color:#a6e22e;">now</span><span>() -&gt; Timestamp { Timestamp::try_from(std::time::SystemTime::now()) }
+</span><span>
+</span><span style="color:#75715e;">// std::Instant::now()
+</span><span style="color:#f92672;">pub </span><span style="font-style:italic;color:#66d9ef;">fn </span><span style="color:#a6e22e;">now</span><span>() -&gt; Instant {
+</span><span style="color:#75715e;">// https://www.manpagez.com/man/3/clock_gettime/
+</span><span>  </span><span style="font-style:italic;color:#66d9ef;">const</span><span> clock_id: libc::</span><span style="font-style:italic;color:#66d9ef;">clockid_t </span><span style="color:#f92672;">= </span><span>libc::</span><span style="color:#ae81ff;">CLOCK_MONOTONIC</span><span>;
+</span><span>  Instant { t: Timespec::now(clock_id) }
+</span><span>}
+</span><span>
+</span><span style="color:#75715e;">// std::SystemTime::now()
+</span><span style="color:#f92672;">pub </span><span style="font-style:italic;color:#66d9ef;">fn </span><span style="color:#a6e22e;">now</span><span>() -&gt; SystemTime { SystemTime { t: Timespec::now(libc::</span><span style="color:#ae81ff;">CLOCK_REALTIME</span><span>) } }
+</span></code></pre>
+<p><code>jiff</code>库里获取当前时间的<code>Timestamp::now</code>, 调用的是标准库里的<code>SystemTime::now</code>. 而标准库里的<code>Instant::now</code>和<code>SystemTime::now</code>, 底层正是调用了<code>clock_gettime</code>.</p>
+<h2 id="shi-jian-chuo-dao-ben-di-shi-jian">时间戳到本地时间</h2>
+<p>时间戳被定义为从<code>Epoch</code>开始到某个时刻经历的秒数, 因为起点<code>Epoch</code>是被广泛认可的, 秒的&quot;长度&quot;也是原子钟协商出来的, 所以时间戳是我们所有人的共识, 对所有人来说都是一样的, 可以看作是&quot;绝对&quot;时间.</p>
+<p>尽管操作系统和, 程语言都为我们提供了获取时间戳的方法, 但毕竟计算机还要给人用的, 而本地时间的格式是更符合我们的使用习惯的, 所以需要能将时间戳转换到本地时间的方法, 这不, 问题就来了.</p>
+<p>因为本地时间是偏向自然规律的, 比如中午是12:00, 中国人是这样认为的, 美国人也是这样认为的. 但对于某个具体的时刻, 例如中国中午(12:00), 美国却是午夜(00:00), 尽管时间戳都是一样的.</p>
+<p>显然, 时间戳没办法直接转换到本地时间, 这边的主要问题在于地球是绕着地轴转的, 不同地区看到日出日落时间不一样, 同一个时间戳对不同地区的人, 有了不同的本地时间.</p>
+<p>既然问题在于地区的差异, 那解决的办法也就有了. 只要地球还是绕着地轴转的, 同一经线上的本地时间就是相同的, 而地球自转也是&quot;均匀的&quot;, 所以不同经线上的时间偏差是可以计算出来的. </p>
+<p>加上地区信息, 时间戳和本地时间之间就可以换算了, 时间戳没什么大        问题了, 那关键就在于地区信息了, 下面是我们有可能会遇到的三种时区格式.</p>
+<h2 id="gu-ding-pian-yi-shi-qu">固定偏移时区</h2>
+
+  
+  
+    
+    
+  
+  <img src="https://dlzht.github.io/image/014_03.png" alt="image 404" class="center" decoding="async" loading="lazy"/>
+
+<p>上面我们提到<code>Epoch</code>的时候, 给出的是时间<code>1970-01-01 00:00:00Z</code>. 这其实是一个带时区的时间, 最后的字母<code>Z</code>, 表示的上面图最中间这条黑色的经线, <code>Z</code>就是这里的时区信息. </p>
+<p>地球自转360<sup>°</sup>是1天, 也就是24小时, 也就是1440分钟. 那很容易计算, 经线相隔15<sup>°</sup>就会差1个小时, 相隔1/4<sup>°</sup>就会差1分钟, 这就是地区之间的时间偏移量.</p>
+<p>我们以上面的这条黑色经线为&quot;原点&quot;, 往东(右)为正, 往西(左)为负, 就可以表达出全球所有地区之间的时间偏移关系. <code>Z</code>的偏移量是0, 也被成为UTC时区(<code>TimeZone::UTC</code>).</p>
+<pre data-lang="txt" style="background-color:#272822;color:#f8f8f2;" class="language-txt "><code class="language-txt" data-lang="txt"><span>1970-01-01T01:00:00+00:00  3600
+</span><span>
+</span><span>1970-01-01T02:30:00+01:30  3600
+</span><span>\________/ \______/ \___/
+</span><span>    |         |       |
+</span><span>   日期       时间   偏移(时区)
+</span></code></pre>
+<p>如上是两个固定偏移时区的时间, 都对应<code>3600</code>这个时间戳. 第一个是UTC时区的时间, 偏移量是0. 第二个时间的偏移量是01:30, (偏移量 + UTC时区时间 = 当前时间), 所以 (01:00 + 01:30 = 02:30). </p>
+<p>值得一提的是. 偏移量的范围是-12:00 ~ +14:00, 区间长度是26, 不是理所当然的24小时, 加上夏令时还可能是27, 感兴趣的同学可以看一下<a rel="noopener" target="_blank" href="https://en.wikipedia.org/wiki/UTC%2B14:00">UTC+14:00</a>.</p>
+<h2 id="posixshi-qu">POSIX时区</h2>
+<p>POSIX格式的时区用的并不多(基本没见过..), 不过这种格式包含了夏令时的规则, 所以也列在这边了, 顺便也能了解下夏令时是什么概念.</p>
+<pre data-lang="txt" style="background-color:#272822;color:#f8f8f2;" class="language-txt "><code class="language-txt" data-lang="txt"><span>STD offset [ DST [ dstoffset ] [ , rule ] ]
+</span><span>
+</span><span>STD:        夏令时没开启时采用哪个时区
+</span><span>offset:     夏令时没开启时UTC偏移
+</span><span>DST:        夏令时开启后采用哪个时区(可选)
+</span><span>dstoffset:  夏令时没开启后UTC偏移(可选)
+</span><span>rule:       夏令时规则(可选)
+</span></code></pre>
+<p>夏令时, Daylight Saving Time, 简称DST. 一般在春夏季开启, 秋冬季退出. 在夏令时开启时, 会把时钟调快, 比如向前拨1个小时, 这样本来的07:00, 就变成了08:00. 这样做的原因是, 夏季天亮的更早, 对于日出而作的我们, 能更多地利用太阳光照, 降低能源消耗.</p>
+<p><em>初看到DST时, 我还以为是Rust的动态尺寸类型, Dynamically Sized Types. 时间处理怎么和类型系统扯上关系了... 原来还有这个DST, Daylight Saving Time, 夏令时</em></p>
+<pre data-lang="txt" style="background-color:#272822;color:#f8f8f2;" class="language-txt "><code class="language-txt" data-lang="txt"><span>EST05:00EDT,M3.2.0/2:00:00,M11.1.0/2:00:00
+</span><span>\_/\___/\_/ \____________/ \_____________/
+</span><span> |   |   |        |               |
+</span><span>时区 偏移 时区  夏令时开启时间   夏令时结束时间
+</span></code></pre>
+<p>上面是纽约的POSIX时区的示例, 没开启夏令时, 采用时区<code>EST</code>时区(UTC-05:00, 和UTC偏移相反); 开启夏令时后, 采用<code>EDT</code>时区. 夏令时开启的时间是3月份第2个星期日的02:00, 结束的时间是11月份第1个星期日的02:00.</p>
+<pre data-lang="rust" style="background-color:#272822;color:#f8f8f2;" class="language-rust "><code class="language-rust" data-lang="rust"><span style="font-style:italic;color:#66d9ef;">let</span><span> d1 </span><span style="color:#f92672;">= </span><span>DateTime::constant(</span><span style="color:#ae81ff;">2024</span><span>, </span><span style="color:#ae81ff;">3</span><span>, </span><span style="color:#ae81ff;">10</span><span>, </span><span style="color:#ae81ff;">1</span><span>, </span><span style="color:#ae81ff;">59</span><span>, </span><span style="color:#ae81ff;">59</span><span>, </span><span style="color:#ae81ff;">0</span><span>)
+</span><span>    .</span><span style="color:#66d9ef;">intz</span><span>(</span><span style="color:#e6db74;">&quot;America/New_York&quot;</span><span>).</span><span style="color:#66d9ef;">unwrap</span><span>();
+</span><span style="font-style:italic;color:#66d9ef;">let</span><span> d2 </span><span style="color:#f92672;">=</span><span> d1.</span><span style="color:#66d9ef;">add</span><span>(</span><span style="color:#ae81ff;">1.</span><span style="color:#66d9ef;">second</span><span>());
+</span><span>
+</span><span style="color:#75715e;">// d1: 2024-03-10T01:59:59-05:00[America/New_York]
+</span><span style="color:#75715e;">// d2: 2024-03-10T03:00:00-04:00[America/New_York]  
+</span></code></pre>
+<p>夏令时增加了时间换算的复杂度, 给程序带来的麻烦可不少, 比如上面的例子, <code>d1</code>是进入夏令时的前一刻, <code>d1</code>加上一秒到了<code>d2</code>. 明明只过了1秒, 时间上却差了1个小时, 不了解夏令时的同学肯定会非常困惑(例如我~).</p>
+<p>而且对于纽约来说, <code>2024-03-10 02:00:00 ~ 2024-03-10 03:00:00</code>这段时间成了&quot;空白&quot;, 没有时间戳会解析在这个时间段里, 这被称为<code>gap</code>.</p>
+<p>退出夏令时时, 比如<code>2024-11-03 01:00:00 ~ 2024-11-03 02:00:00</code>, 这段时间则会&quot;重放&quot;一遍, 所以其中任意时间点, 都会对应到两个时间戳, 这被称为<code>fold</code>.</p>
+<p>我国在1986也实行过夏令时制, 实行了6年, 到1992年暂停了, 因为节电效果并不好, 而且给工业生产和日常生活带来了很多麻烦, U_U.</p>
+<h2 id="tzifge-shi-shi-qu">TZIF格式时区</h2>
+<p>固定偏移的时区是理论上的划分, 简洁, 容易理解, 但现实总不那么简单. 一方面地区很少是按经线划分的, 国家或州省的形状并不规整; 另一方面, 时区和夏令时规则是随时会改变的, 而且从实际看这种改变并不罕见.</p>
+
+  
+  
+    
+    
+  
+  <img src="https://dlzht.github.io/image/014_04.png" alt="image 404" class="center" decoding="async" loading="lazy"/>
+
+<p><em>按15<sup>°</sup>一个时区的划分方式, 我国的领土横跨5个时区, 也就是说东西地区的时差会达到5个小时. 但我国是统一使用北京时间的, 即东八区(UTC+08:00)的时间, 所以在直播里, 经常会看到都晚上10点了, 藏区的天还是白亮的.</em></p>
+<p>这些时间规则不是预先可以确定的逻辑, 而是随时可能会变化更新的, 所以更像是一个数据库. 因此<a rel="noopener" target="_blank" href="https://www.iana.org/time-zones">Time Zone Database</a>时区信息数据库诞生了, 里面包含国家和地区的时间规则, 当国家和地区发生变更, 或者政府宣布变更时间规则时, 这些变更记录也会被更新进去.</p>
+<pre data-lang="txt" style="background-color:#272822;color:#f8f8f2;" class="language-txt "><code class="language-txt" data-lang="txt"><span>// /usr/share/zoneinfo/America/New_York     
+</span><span>Sun Mar 10 06:59:59 2024 UT = Sun Mar 10 01:59:59 2024 EST isdst=0 gmtoff=-18000
+</span><span>Sun Mar 10 07:00:00 2024 UT = Sun Mar 10 03:00:00 2024 EDT isdst=1 gmtoff=-14400
+</span><span>Sun Nov  3 05:59:59 2024 UT = Sun Nov  3 01:59:59 2024 EDT isdst=1 gmtoff=-14400
+</span><span>Sun Nov  3 06:00:00 2024 UT = Sun Nov  3 01:00:00 2024 EST isdst=0 gmtoff=-18000
+</span></code></pre>
+<p>如上是纽约地区2024年的时间规则, Linux发行版通常自带时区数据库, 比如Arch系统在<code>/usr/share/zoneinfo/</code>目录下有很多地区时间文件. 系统当前的时间规则文件是<code>/etc/localtime</code>,  我们可以用命令<code>zdump -v /etc/localtime</code>查看配置的时间规则. </p>
+<p>JDK也带有时区数据库, 比如JDK1.8的<code>jre/lib/tzdb.dat</code>文件. Rust的时间处理库chrone, 搭配第三方库可以处理时区数据库, 例如<a rel="noopener" target="_blank" href="https://github.com/kennytm/tzfile">tzfile</a>会读取系统里的数据库文件, 而<a rel="noopener" target="_blank" href="https://github.com/chronotope/chrono-tz">chrone-tz</a>是读取预先打包进二进制包里文件.</p>
+<h2 id="run-nian-he-run-miao">闰年和闰秒</h2>
+<p>地球公转一周是1年, 地球自转一圈是1天, 1年&quot;等于&quot;365天. 这个365的倍数关系是经验所得, 也是为了方便使用, 不是定理证明的结果. 事实上, 1年会比365天稍微长一点, 比如365.25天, 为了让这点误差不长年累月的积累下去, 就引入了闰年, 每隔4年额外加一天.</p>
+<p>闰秒的引入也是为了消除误差, UTC里的秒是由原子钟来定义的, 和我们日常使用的秒是1天的86400秒, 这两个秒之间存在误差. 与闰年不同的是, 闰秒什么时候出现是没有规律的, 通常是由IERS提前6个月通知大家要加1秒了, 这导致了计算机很难处理闰秒.</p>
+<p>闰秒和闰年存在的原因, 是因为我们给不同的周期性时间, 也就是时间单位之间, 赋予了倍数关系, 而这些单位之间并不像大小齿轮那样是紧紧咬合, 一丝不差的, 闰秒和闰年就负责消除误差.</p>
+<h2 id="xiao-jie">小结</h2>
+<p>这篇文章主要讲述了计算机时间相关的内容, 起因是<a rel="noopener" target="_blank" href="https://github.com/BurntSushi">BurntSushi</a>新发布的<a rel="noopener" target="_blank" href="https://github.com/BurntSushi/jiff">jiff</a>这个时间库, 项目里的文档<a rel="noopener" target="_blank" href="https://github.com/BurntSushi/jiff/blob/master/DESIGN.md">DESIGN.md</a>和<a rel="noopener" target="_blank" href="https://github.com/BurntSushi/jiff/blob/master/COMPARE.md">COMPARE.md</a>非常值得一读, 设计和开发好用的时间库并不容易, 了解下我们的时间也非常有意思.</p>
+</br>
+<p><em>-&gt; 如果文章有不足之处或者有改进的建议，可以在<a rel="noopener" target="_blank" href="https://github.com/dlzht/dlzht.github.io/discussions/12">这边</a>告诉我，也可以发送给我的<a href="mailto:dlzht@protonmail.com">邮箱</a></em></p>
+
+        </div>
+
+        
+        <div class="pagination">
+            <!-- <div class="pagination__title"> -->
+                <!-- <span class="pagination__title-h">++</span> -->
+                <!-- <hr /> -->
+            <!-- </div> -->
+            <div class="pagination__buttons">
+                    <span class="button previous">
+                        <a href="https://dlzht.github.io/013-lets-encrypt-ji-hua-zhong-zhi-ocspfu-wu/">
+                            <span class="button__icon">←</span>&nbsp;
+                            <span class="button__text">Let&#x27;s Encrypt计划终止OCSP服务</span>
+                        </a>
+                    </span>
+                
+                
+                    <span class="button next">
+                        <a href="https://dlzht.github.io/015-rustshi-jian-ku-jiff/">
+                            <span class="button__text">Rust优雅的时间库Jiff</span>&nbsp;
+                            <span class="button__icon">→</span>
+                        </a>
+                    </span>
+                </div>
+        </div>
+    
+    </div>
+
+    </div>
+
+    
+    <footer class="footer">
+        <div class="footer__inner">
+                <div class="copyright copyright--user">Email:&nbsp;<a href=mailto:dlzht@protonmail.com>dlzht@protonmail.com</a></div>
+            </div>
+    </footer>
+    
+
+</div>
+</body>
+
+</html>

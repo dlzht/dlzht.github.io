@@ -1,0 +1,230 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <script async src="https://www.googletagmanager.com/gtag/js?id=G-Q8CTC2C6DM"></script>
+    <script>
+        window.dataLayer = window.dataLayer || [];
+        function gtag(){dataLayer.push(arguments);}
+        gtag('js', new Date());
+        gtag('config', 'G-Q8CTC2C6DM');
+    </script>
+
+    <title></title>
+    
+    <meta http-equiv="content-type" content="text/html; charset=utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1">
+    <meta name="robots" content="noodp"/>
+
+    <link rel="stylesheet" href="https://dlzht.github.io/style.css">
+    <link rel="stylesheet" href="https://dlzht.github.io/color/blue-light.css">
+
+        <link rel="stylesheet" href="https://dlzht.github.io/color/background_light.css">
+    
+    <link rel="stylesheet" href="https://dlzht.github.io/font-hack-subset.css">
+
+    <meta name="description" content="">
+
+    <meta property="og:description" content="">
+    <meta property="og:title" content="">
+    <meta property="og:type" content="article">
+    <meta property="og:url" content="https://dlzht.github.io/012-rustxia-sm4-aes-rsajia-jie-mi/">
+
+    <meta name="twitter:card" content="summary_large_image">
+    <meta name="twitter:description" content="">
+    <meta name="twitter:title" content="">
+    <meta property="twitter:domain" content="dlzht.github.io">
+    <meta property="twitter:url" content="https://dlzht.github.io/012-rustxia-sm4-aes-rsajia-jie-mi/">
+
+    </head>
+
+<body class="">
+<div class="container">
+    
+    <header class="header">
+        <div class="header__inner">
+            <div class="header__logo">
+                    
+                <a href="https://dlzht.github.io" style="text-decoration: none;">
+                    <div class="logo">
+                      
+                            QianQi dlzht@protonmail.com
+                        
+                    </div>
+                </a>
+            </div>
+        </div>
+
+        
+        
+                <nav class="menu">
+            <ul class="menu__inner">
+                <li class="active"><a href="https://dlzht.github.io">主页</a></li>
+            
+                <li><a href="https://dlzht.github.io/tags">标签</a></li>
+            
+                <li><a href="https://dlzht.github.io/about">关于</a></li>
+            
+                <li><a href="https://dlzht.github.io/archive">归档</a></li>
+            </ul>
+        </nav>
+    
+    
+        
+    </header>
+    
+
+    <div class="content">
+        
+    <div class="post">
+        
+    <h1 class="post-title"><a href="https://dlzht.github.io/012-rustxia-sm4-aes-rsajia-jie-mi/">Rust下SM4&#x2F;AES&#x2F;RSA加解密</a></h1>
+    <div class="post-meta-inline">
+        
+    <span class="post-date">
+            2024-07-20
+        </span>
+
+    </div>
+
+    
+        <span class="post-tags-inline">
+                :: tags:&nbsp;
+                <a class="post-tag" href="https://dlzht.github.io/tags/rsa/">#RSA</a>&nbsp;
+                <a class="post-tag" href="https://dlzht.github.io/tags/rust/">#Rust</a>&nbsp;
+                <a class="post-tag" href="https://dlzht.github.io/tags/sm4/">#SM4</a></span>
+    
+
+        <div class="post-content">
+            <p><code>aes</code>和<code>rsa</code>加密使用非常广泛, 而<code>sm4</code>在信创系统中比较常见, 以前用<code>Java</code>开发的时候, 有强大的<a rel="noopener" target="_blank" href="https://github.com/bcgit/bc-java">bc</a>库, 还有易用的<a rel="noopener" target="_blank" href="https://github.com/dromara/hutool">hutool</a>, 现在转向了<code>Rust</code>, 也是找到了<a rel="noopener" target="_blank" href="https://github.com/RustCrypto">RustCrypto</a>这个项目.</p>
+<p><code>RustCrypto</code>有点类似于<code>bc</code>, 包含的东西非常多, 编码, 哈希, 签名, 加解密, 椭圆曲线等等. 常用的套件差不多准备全了, 这就来放手试试. 这个项目的文档还不那么完善, 而且代码库分得比较细, 我在使用中也是绕了一些弯路, 这篇文章呢就记录一下.</p>
+<span id="continue-reading"></span><h2 id="fen-kuai-jia-mi-gong-zuo-mo-shi-tian-chong-mo-shi">分块加密, 工作模式, 填充模式</h2>
+<p>**  分块加密**: 属于对称密钥算法, 加解密用的是同一个密钥. 分块的意思是, 在加解密过程中, 会把数据切分成等长的块来处理. RustCrypto的实现在<a rel="noopener" target="_blank" href="https://github.com/RustCrypto/block-ciphers">block-ciphers</a>, <code>sm4</code>和<code>rsa</code>都属于分块加密算法    .</p>
+<p><strong>工作模式</strong>: 把初始向量, 密钥, 原文和密文这些分好块后, 要按什么顺序计算, 最终才得到加密的密文(或解密的原文). 工作模式和分块加密是组合关系, 一种加密算法能选用多种工作模式, 一种工作模式也能适用多种加密算法. RustCrypto的实现在<a rel="noopener" target="_blank" href="https://github.com/RustCrypto/block-modes">block-modes</a>.</p>
+<p><strong>填充模式</strong>: 定义了怎么补全不完整的块, 上面提到分组加密需要把数据切分块处理, 比如16字节是一块, 而我们提供的数据并不总会是16的倍数, 这样最后一个块就可能会有&quot;空白&quot;部分, 而填充模式就决定了空白是什么内容. RustCrypto的填充模式实现在<a rel="noopener" target="_blank" href="https://github.com/RustCrypto/utils/blob/master/block-padding/src/lib.rs">block-padding</a>.</p>
+<h2 id="sm4jia-mi-jie-mi">SM4加密/解密</h2>
+<pre data-lang="rust" style="background-color:#272822;color:#f8f8f2;" class="language-rust "><code class="language-rust" data-lang="rust"><span>[dependencies]
+</span><span>sm4 </span><span style="color:#f92672;">= </span><span style="color:#e6db74;">&quot;0.5&quot;
+</span><span>cbc </span><span style="color:#f92672;">= </span><span>{ version </span><span style="color:#f92672;">= </span><span style="color:#e6db74;">&quot;0.1&quot;</span><span>, features </span><span style="color:#f92672;">= </span><span>[</span><span style="color:#e6db74;">&quot;alloc&quot;</span><span>] }
+</span><span>
+</span><span style="color:#f92672;">use </span><span>sm4::cipher::block_padding::Pkcs7;
+</span><span style="color:#f92672;">use </span><span>sm4::cipher::{BlockEncryptMut, KeyIvInit};
+</span></code></pre>
+<p>上面是cbc+sm4加解密过程中要用到的依赖, 有些依赖项是通过<code>sm4</code>重新导出来的, 比如填充模式<code>Pkcs7</code>. 需要使用什么加密算法, 最好用这个库里导出的, 不然在编译时可能会出现晦涩的错误(一大串的泛型~).</p>
+<pre data-lang="rust" style="background-color:#272822;color:#f8f8f2;" class="language-rust "><code class="language-rust" data-lang="rust"><span style="color:#75715e;">//  CBC块模式加密
+</span><span style="font-style:italic;color:#66d9ef;">type </span><span>Sm4CbcEnc </span><span style="color:#f92672;">= </span><span>cbc::Encryptor&lt;sm4::Sm4&gt;;
+</span><span>
+</span><span style="font-style:italic;color:#66d9ef;">fn </span><span style="color:#a6e22e;">sm4_encrypt_cbc_pkcs7</span><span>(</span><span style="font-style:italic;color:#fd971f;">key</span><span>: </span><span style="color:#f92672;">&amp;</span><span>[</span><span style="font-style:italic;color:#66d9ef;">u8</span><span>], </span><span style="font-style:italic;color:#fd971f;">iv</span><span>: </span><span style="color:#f92672;">&amp;</span><span>[</span><span style="font-style:italic;color:#66d9ef;">u8</span><span>], </span><span style="font-style:italic;color:#fd971f;">data</span><span>: </span><span style="color:#f92672;">&amp;</span><span>[</span><span style="font-style:italic;color:#66d9ef;">u8</span><span>]) -&gt; </span><span style="font-style:italic;color:#66d9ef;">Vec</span><span>&lt;</span><span style="font-style:italic;color:#66d9ef;">u8</span><span>&gt; {
+</span><span>  </span><span style="font-style:italic;color:#66d9ef;">let</span><span> sm4 </span><span style="color:#f92672;">= </span><span>Sm4CbcEnc::new(key.</span><span style="color:#66d9ef;">into</span><span>(), iv.</span><span style="color:#66d9ef;">into</span><span>());
+</span><span>  </span><span style="color:#f92672;">return</span><span> sm4.encrypt_padded_vec_mut::&lt;Pkcs7&gt;(data);
+</span><span>}
+</span></code></pre>
+<p>这里给<code>cbc::Encryptor&lt;sm4::Sm4&gt;</code>起了个别名<code>Sm4CbcEnc</code>, 方法第一步是构造加密器, 参数是密钥<code>key</code>和初始向量<code>iv</code>. 虽然这两个参数的类型是切片, 但对长度是有一定要求的, <code>key</code>和<code>iv</code>得是16字节, 不然会<code>panic</code>. </p>
+<p><code>data</code>参数是要加密的原数据, 如果采用的填充模式是<code>NoPadding</code>(不填充), 那数据的长度就得是16的倍数, 其他填充模式则不需要, 这里是用<code>pkcs7</code>模式来填充.</p>
+<p>方法的第二步加密原文, 并返回密文字节. <code>encrypt_padded_vec_mut</code>方法会自动分配内存来放结果, 这需要开启<code>alloc</code>特性. 如果没有开启这个特性的话, 需要自己申请内存, 这样可以在没有<code>std</code>的环境中使用.</p>
+<pre data-lang="rust" style="background-color:#272822;color:#f8f8f2;" class="language-rust "><code class="language-rust" data-lang="rust"><span style="color:#75715e;">//  CBC块模式解密
+</span><span style="font-style:italic;color:#66d9ef;">type </span><span>Sm4CbcDec </span><span style="color:#f92672;">= </span><span>cbc::Decryptor&lt;sm4::Sm4&gt;;
+</span><span>
+</span><span style="font-style:italic;color:#66d9ef;">fn </span><span style="color:#a6e22e;">sm4_decrypt_cbc_pkcs7</span><span>(</span><span style="font-style:italic;color:#fd971f;">key</span><span>: </span><span style="color:#f92672;">&amp;</span><span>[</span><span style="font-style:italic;color:#66d9ef;">u8</span><span>], </span><span style="font-style:italic;color:#fd971f;">iv</span><span>: </span><span style="color:#f92672;">&amp;</span><span>[</span><span style="font-style:italic;color:#66d9ef;">u8</span><span>], </span><span style="font-style:italic;color:#fd971f;">data</span><span>: </span><span style="color:#f92672;">&amp;</span><span>[</span><span style="font-style:italic;color:#66d9ef;">u8</span><span>]) -&gt; </span><span style="font-style:italic;color:#66d9ef;">Vec</span><span>&lt;</span><span style="font-style:italic;color:#66d9ef;">u8</span><span>&gt; {
+</span><span>  </span><span style="font-style:italic;color:#66d9ef;">let</span><span> sm4 </span><span style="color:#f92672;">= crate</span><span>::Sm4CbcDec::new(key.</span><span style="color:#66d9ef;">into</span><span>(), iv.</span><span style="color:#66d9ef;">into</span><span>());
+</span><span>  </span><span style="color:#f92672;">return</span><span> sm4.encrypt_padded_vec_mut::&lt;Pkcs7&gt;(data);
+</span><span>}
+</span><span>
+</span></code></pre>
+<p>解密代码和加密区别不大, 一个是改成了解密器<code>cbc::Decryptor&lt;sm4::Sm4&gt;</code>, 还一个是改成解密方法<code>encrypt_padded_vec_mut</code>. <code>key</code>, <code>iv</code>, 还有填充模式和数据长度, 和加密过程的要求一样.</p>
+<h2 id="aesjia-mi-jie-mi">AES加密/解密</h2>
+<pre data-lang="rust" style="background-color:#272822;color:#f8f8f2;" class="language-rust "><code class="language-rust" data-lang="rust"><span>[dependencies]
+</span><span>aes </span><span style="color:#f92672;">= </span><span style="color:#e6db74;">&quot;0.8&quot;
+</span><span>ofb </span><span style="color:#f92672;">= </span><span style="color:#e6db74;">&quot;0.6&quot;
+</span><span>
+</span><span style="color:#f92672;">use </span><span>aes::cipher::{KeyIvInit, StreamCipher};
+</span></code></pre>
+<p>某些工作模式可以让分块密码像流密码一样工作, 也就是不需要非得是完整的块, 也就不需要填充字节. <code>ctr</code>和<code>ofb</code>就是这样的模式, 接下来的<code>aes</code>加密我就搭配<code>ofb</code>的工作模式, 上面是我们需要用到的依赖. </p>
+<pre data-lang="rust" style="background-color:#272822;color:#f8f8f2;" class="language-rust "><code class="language-rust" data-lang="rust"><span style="font-style:italic;color:#66d9ef;">type </span><span>Aes128OfbEnc </span><span style="color:#f92672;">= </span><span>ofb::Ofb&lt;aes::Aes128&gt;;
+</span><span>
+</span><span style="font-style:italic;color:#66d9ef;">fn </span><span style="color:#a6e22e;">aes_encrypt_ofb</span><span>(</span><span style="font-style:italic;color:#fd971f;">key</span><span>: </span><span style="color:#f92672;">&amp;</span><span>[</span><span style="font-style:italic;color:#66d9ef;">u8</span><span>], </span><span style="font-style:italic;color:#fd971f;">iv</span><span>: </span><span style="color:#f92672;">&amp;</span><span>[</span><span style="font-style:italic;color:#66d9ef;">u8</span><span>], </span><span style="font-style:italic;color:#fd971f;">data</span><span>: </span><span style="color:#f92672;">&amp;mut</span><span> [</span><span style="font-style:italic;color:#66d9ef;">u8</span><span>]) {
+</span><span>    </span><span style="font-style:italic;color:#66d9ef;">let </span><span style="color:#f92672;">mut</span><span> aes </span><span style="color:#f92672;">= </span><span>Aes128OfbEnc::new(key.</span><span style="color:#66d9ef;">into</span><span>(), iv.</span><span style="color:#66d9ef;">into</span><span>());
+</span><span>    aes.</span><span style="color:#66d9ef;">apply_keystream</span><span>(data);
+</span><span>}
+</span></code></pre>
+<p><code>aes</code>的密钥长度可以是16, 24或32字节, 密钥的长度不同, 需要用到的类型也不同. 上面代码是16字节长度密钥的实例, 选用的类型是<code>Aes128</code>, 128b = 16B. 其他长度的密钥, 可以用<code>Aes192</code>, <code>Aes256</code></p>
+<pre data-lang="rust" style="background-color:#272822;color:#f8f8f2;" class="language-rust "><code class="language-rust" data-lang="rust"><span style="font-style:italic;color:#66d9ef;">type </span><span>Aes128OfbDec </span><span style="color:#f92672;">= </span><span>ofb::Ofb&lt;aes::Aes128&gt;;
+</span><span>
+</span><span style="font-style:italic;color:#66d9ef;">fn </span><span style="color:#a6e22e;">aes_decrypt_ofb</span><span>(</span><span style="font-style:italic;color:#fd971f;">key</span><span>: </span><span style="color:#f92672;">&amp;</span><span>[</span><span style="font-style:italic;color:#66d9ef;">u8</span><span>], </span><span style="font-style:italic;color:#fd971f;">iv</span><span>: </span><span style="color:#f92672;">&amp;</span><span>[</span><span style="font-style:italic;color:#66d9ef;">u8</span><span>], </span><span style="font-style:italic;color:#fd971f;">data</span><span>: </span><span style="color:#f92672;">&amp;mut</span><span> [</span><span style="font-style:italic;color:#66d9ef;">u8</span><span>]) {
+</span><span>    </span><span style="font-style:italic;color:#66d9ef;">let </span><span style="color:#f92672;">mut</span><span> aes </span><span style="color:#f92672;">= </span><span>Aes128OfbEnc::new(key.</span><span style="color:#66d9ef;">into</span><span>(), iv.</span><span style="color:#66d9ef;">into</span><span>());
+</span><span>    aes.</span><span style="color:#66d9ef;">apply_keystream</span><span>(data);
+</span><span>}
+</span></code></pre>
+<p>加解密的代码是一样的, 别名类型是为了看上去有所区别. <code>apply_keystream</code>方法可以把密文数据存在原数据的位置, 所以这边的<code>data</code>传递的是可变引用, 这样在不再需要原文数据的情况下, 就省去了分配额外的内存的开销.</p>
+<h2 id="rsajia-mi-jie-mi">RSA加密/解密</h2>
+<pre data-lang="rust" style="background-color:#272822;color:#f8f8f2;" class="language-rust "><code class="language-rust" data-lang="rust"><span style="color:#75715e;">// [dependencies] 
+</span><span style="color:#75715e;">// rsa = &quot;0.9&quot;
+</span><span style="color:#f92672;">pub </span><span style="font-style:italic;color:#66d9ef;">fn </span><span style="color:#a6e22e;">generate_keypair</span><span>(</span><span style="font-style:italic;color:#fd971f;">length</span><span>: </span><span style="font-style:italic;color:#66d9ef;">usize</span><span>) -&gt; </span><span style="font-style:italic;color:#66d9ef;">Result</span><span>&lt;(RsaPublicKey, RsaPrivateKey)&gt; {
+</span><span>    </span><span style="font-style:italic;color:#66d9ef;">let </span><span style="color:#f92672;">mut</span><span> rng </span><span style="color:#f92672;">= </span><span>rand::thread_rng();
+</span><span>    </span><span style="font-style:italic;color:#66d9ef;">let</span><span> pri_key </span><span style="color:#f92672;">= </span><span>RsaPrivateKey::new(</span><span style="color:#f92672;">&amp;mut</span><span> rng, length)</span><span style="color:#f92672;">?</span><span>;
+</span><span>    </span><span style="font-style:italic;color:#66d9ef;">let</span><span> pub_key </span><span style="color:#f92672;">=</span><span> pri_key.</span><span style="color:#66d9ef;">to_public_key</span><span>();
+</span><span>    </span><span style="color:#f92672;">return </span><span style="font-style:italic;color:#66d9ef;">Ok</span><span>((pub_key, pri_key));
+</span><span>}
+</span></code></pre>
+<p>RustCrypto的实现在仓库<a rel="noopener" target="_blank" href="https://github.com/RustCrypto/RSA">RSA</a>, 这是一种非对称密钥算法, 有公钥<code>pub_key</code>和私钥<code>pri_key</code>两个密钥. 公钥用来加密, (公钥Φ原文)=密文; 私钥则用来解密, (私钥Φ密文)=原文. 上面是生成密钥的代码, 参数<code>length</code>指密钥长度为2<sup>length</sup>.</p>
+<pre data-lang="rust" style="background-color:#272822;color:#f8f8f2;" class="language-rust "><code class="language-rust" data-lang="rust"><span style="color:#f92672;">pub </span><span style="font-style:italic;color:#66d9ef;">fn </span><span style="color:#a6e22e;">encrypt_byte</span><span>(</span><span style="font-style:italic;color:#fd971f;">pub_der</span><span>: </span><span style="color:#f92672;">&amp;</span><span>[</span><span style="font-style:italic;color:#66d9ef;">u8</span><span>], </span><span style="font-style:italic;color:#fd971f;">data</span><span>: </span><span style="color:#f92672;">&amp;</span><span>[</span><span style="font-style:italic;color:#66d9ef;">u8</span><span>]) -&gt; </span><span style="font-style:italic;color:#66d9ef;">Result</span><span>&lt;</span><span style="font-style:italic;color:#66d9ef;">Vec</span><span>&lt;</span><span style="font-style:italic;color:#66d9ef;">u8</span><span>&gt;&gt; {
+</span><span>    </span><span style="font-style:italic;color:#66d9ef;">let </span><span style="color:#f92672;">mut</span><span> rng </span><span style="color:#f92672;">= </span><span>rand::thread_rng();
+</span><span>    </span><span style="color:#75715e;">// 从字节中解析公钥
+</span><span>    </span><span style="font-style:italic;color:#66d9ef;">let</span><span> pub_key </span><span style="color:#f92672;">= </span><span>RsaPublicKey::from_public_key_der(pub_der)</span><span style="color:#f92672;">?</span><span>;
+</span><span>    </span><span style="color:#75715e;">// 公钥加密
+</span><span>    </span><span style="color:#f92672;">return </span><span style="font-style:italic;color:#66d9ef;">Ok</span><span>(pub_key.</span><span style="color:#66d9ef;">encrypt</span><span>(</span><span style="color:#f92672;">&amp;mut</span><span> rng, Pkcs1v15Encrypt, data)</span><span style="color:#f92672;">?</span><span>);
+</span><span>}
+</span><span>
+</span><span style="color:#f92672;">pub </span><span style="font-style:italic;color:#66d9ef;">fn </span><span style="color:#a6e22e;">decrypt_byte</span><span>(</span><span style="font-style:italic;color:#fd971f;">pri_der</span><span>: </span><span style="color:#f92672;">&amp;</span><span>[</span><span style="font-style:italic;color:#66d9ef;">u8</span><span>], </span><span style="font-style:italic;color:#fd971f;">data</span><span>: </span><span style="color:#f92672;">&amp;</span><span>[</span><span style="font-style:italic;color:#66d9ef;">u8</span><span>]) -&gt; </span><span style="font-style:italic;color:#66d9ef;">Result</span><span>&lt;</span><span style="font-style:italic;color:#66d9ef;">Vec</span><span>&lt;</span><span style="font-style:italic;color:#66d9ef;">u8</span><span>&gt;&gt; {
+</span><span>    </span><span style="color:#75715e;">// 从字节中解析私钥
+</span><span>    </span><span style="font-style:italic;color:#66d9ef;">let</span><span> pri_key </span><span style="color:#f92672;">= </span><span>RsaPrivateKey::from_pkcs8_der(pri_der)</span><span style="color:#f92672;">?</span><span>;
+</span><span>    </span><span style="color:#75715e;">// 私钥加密
+</span><span>    </span><span style="color:#f92672;">return </span><span style="font-style:italic;color:#66d9ef;">Ok</span><span>(pri_key.</span><span style="color:#66d9ef;">decrypt</span><span>(Pkcs1v15Encrypt, data)</span><span style="color:#f92672;">?</span><span>);
+</span><span>}
+</span></code></pre>
+<p>公私钥可以用<code>pem</code>(标头 + Base64数据), <code>der</code>(二进制数据)等方式编码, 私钥还有<code>pkcs1</code>和<code>pkcs8</code>格式的区别, 库里都提供了对应的解析方法. 上面实例代码中是解析 的<code>der</code>格式. <code>rsa</code>的加解密用起来说更简单一些, 因为没有了工作模式, 不过填充模式还是有, 这边用的  是<code>Pkcs1v15Encrypt</code>.</p>
+</br>
+<p><em>-&gt; 如果文章有不足之处或者有改进的建议，可以在<a rel="noopener" target="_blank" href="https://github.com/dlzht/dlzht.github.io/discussions/12">这边</a>告诉我，也可以发送给我的<a href="mailto:dlzht@protonmail.com">邮箱</a></em></p>
+
+        </div>
+
+        
+        <div class="pagination">
+            <!-- <div class="pagination__title"> -->
+                <!-- <span class="pagination__title-h">++</span> -->
+                <!-- <hr /> -->
+            <!-- </div> -->
+            <div class="pagination__buttons">
+                    <span class="button previous">
+                        <a href="https://dlzht.github.io/011-zou-ma-guan-hua-httpku-2/">
+                            <span class="button__icon">←</span>&nbsp;
+                            <span class="button__text">走马观花http库2</span>
+                        </a>
+                    </span>
+                
+                
+                    <span class="button next">
+                        <a href="https://dlzht.github.io/013-lets-encrypt-ji-hua-zhong-zhi-ocspfu-wu/">
+                            <span class="button__text">Let&#x27;s Encrypt计划终止OCSP服务</span>&nbsp;
+                            <span class="button__icon">→</span>
+                        </a>
+                    </span>
+                </div>
+        </div>
+    
+    </div>
+
+    </div>
+
+    
+    <footer class="footer">
+        <div class="footer__inner">
+                <div class="copyright copyright--user">Email:&nbsp;<a href=mailto:dlzht@protonmail.com>dlzht@protonmail.com</a></div>
+            </div>
+    </footer>
+    
+
+</div>
+</body>
+
+</html>

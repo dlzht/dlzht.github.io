@@ -1,0 +1,303 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <script async src="https://www.googletagmanager.com/gtag/js?id=G-Q8CTC2C6DM"></script>
+    <script>
+        window.dataLayer = window.dataLayer || [];
+        function gtag(){dataLayer.push(arguments);}
+        gtag('js', new Date());
+        gtag('config', 'G-Q8CTC2C6DM');
+    </script>
+
+    <title></title>
+    
+    <meta http-equiv="content-type" content="text/html; charset=utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1">
+    <meta name="robots" content="noodp"/>
+
+    <link rel="stylesheet" href="https://dlzht.github.io/style.css">
+    <link rel="stylesheet" href="https://dlzht.github.io/color/blue-light.css">
+
+        <link rel="stylesheet" href="https://dlzht.github.io/color/background_light.css">
+    
+    <link rel="stylesheet" href="https://dlzht.github.io/font-hack-subset.css">
+
+    <meta name="description" content="">
+
+    <meta property="og:description" content="">
+    <meta property="og:title" content="">
+    <meta property="og:type" content="article">
+    <meta property="og:url" content="https://dlzht.github.io/001-shu-zi-zheng-shu-he-shu-zi-qian-ming-na-xie-shi/">
+
+    <meta name="twitter:card" content="summary_large_image">
+    <meta name="twitter:description" content="">
+    <meta name="twitter:title" content="">
+    <meta property="twitter:domain" content="dlzht.github.io">
+    <meta property="twitter:url" content="https://dlzht.github.io/001-shu-zi-zheng-shu-he-shu-zi-qian-ming-na-xie-shi/">
+
+    </head>
+
+<body class="">
+<div class="container">
+    
+    <header class="header">
+        <div class="header__inner">
+            <div class="header__logo">
+                    
+                <a href="https://dlzht.github.io" style="text-decoration: none;">
+                    <div class="logo">
+                      
+                            QianQi dlzht@protonmail.com
+                        
+                    </div>
+                </a>
+            </div>
+        </div>
+
+        
+        
+                <nav class="menu">
+            <ul class="menu__inner">
+                <li class="active"><a href="https://dlzht.github.io">主页</a></li>
+            
+                <li><a href="https://dlzht.github.io/tags">标签</a></li>
+            
+                <li><a href="https://dlzht.github.io/about">关于</a></li>
+            
+                <li><a href="https://dlzht.github.io/archive">归档</a></li>
+            </ul>
+        </nav>
+    
+    
+        
+    </header>
+    
+
+    <div class="content">
+        
+    <div class="post">
+        
+    <h1 class="post-title"><a href="https://dlzht.github.io/001-shu-zi-zheng-shu-he-shu-zi-qian-ming-na-xie-shi/">数字证书和数字签名那些事</a></h1>
+    <div class="post-meta-inline">
+        
+    <span class="post-date">
+            2024-04-23
+        </span>
+
+    </div>
+
+    
+        <span class="post-tags-inline">
+                :: tags:&nbsp;
+                <a class="post-tag" href="https://dlzht.github.io/tags/za-wen/">#杂文</a></span>
+    
+
+        <div class="post-content">
+            <p>数字证书和数字签名是构建现今数字安全的基石, 随着计算机世界愈加复杂, 信任和安全愈加重要, 他们扮演的角色也愈加的重要. 在web服务, 区块链, 电子邮件, 电子签名和智能家居等数不胜数的场景中, 都可以发现这些技术的身影. 这篇文章将主要讲述数字证书和数字签名的概念和原理, 以及CA, OCSP等与之相关内容, 希望对需要了解这方面内容的读者有所帮助. </p>
+<span id="continue-reading"></span><h2 id="gong-yao-si-yao-he-fei-dui-cheng-mi-ma">公钥, 私钥和非对称密码</h2>
+<p>我们把加密前的原数据叫做原文, 加密后的内容叫做密文. 对称密码(比如DES, AES)指的是, 在加密和解密的过程中使用同一个密钥. 比如在影视剧中, 经常有情报人员用某本书加上一组数字来传递消息这样的场景, 这就是一种对称加密的方式, 消息(原文)转换到数字(密文)是加密, 数字(密文)再转回消息(原文)是解密, 这里的&quot;书&quot;就充当了密钥. </p>
+
+  
+  
+    
+    
+  
+  <img src="https://dlzht.github.io/image/001_01_A.png" alt="image 404" class="center" decoding="async" loading="lazy"/>
+
+<p>非对称密码相对于对称密码, 在加密解密的过程中需要用两个密钥, 一个是对所有人公开的公钥, 另一个是只有自己知道的私钥. 从私钥可以推导出公钥, 但不能从公钥推导出私钥. 一个公钥和对应的私钥组成一个密钥对. 用公钥加密的数据, 只能用对应的私钥解开, 而用私钥加密的数据, 也只能用对应的公钥解开. </p>
+
+  
+  
+    
+    
+  
+  <img src="https://dlzht.github.io/image/001_02_A.png" alt="image 404" class="center" decoding="async" loading="lazy"/>
+
+<h3 id="fei-dui-cheng-mi-ma-jia-mi-jie-mi-mo-shi">非对称密码-加密解密模式</h3>
+<p>数据加密的意义在于让其他人不知道数据是什么. 用公钥加密的数据只能用对应的私钥解开, 因为私钥是私密保存的, 所以只有私钥持有者可以解开密文, 利用这一点就可以实现数据加密. </p>
+
+  
+  
+    
+    
+  
+  <img src="https://dlzht.github.io/image/001_03_A.png" alt="image 404" class="center" decoding="async" loading="lazy"/>
+
+<p>比如我们想备份文件到共享空间, 又不想让其他人知道文件的内容, 就可以用公钥对原文件进行加密, 然后把加密过的文件备份存储, 后续需要的时候再用私钥解开来. 再比如我们想给其他人发送一份文件, 就可以用对方的公钥加密文件, 然后把加密后的文件发送出去. 这样就算传输过程中文件泄露了, 由只要没有对应的私钥也无法解开得到原文件. </p>
+<p>相比于对称密码, 非对称密码的优势在于不需要额外的安全渠道交换密钥. 设想一下在网络通信中, 要采用对称密码来加密流量的话, 那么通信双方在加解密前就需要知道密钥. 如果双方都认识或者通信规模不大, 可以线下协商等方式(额外渠道)来约定密钥, 但在互联网的情况下, 通信双方通常是互不相识的, 网络传输也是不可信的, 无法安全地约定密钥, 所以单靠对称密码完成安全通信. </p>
+
+  
+  
+    
+    
+  
+  <img src="https://dlzht.github.io/image/001_04_A.png" alt="image 404" class="center" decoding="async" loading="lazy"/>
+
+<p>而非对称密码来中公钥本来就是公开的, 可以在网络上传输, 发送端用公钥加密数据, 然后在接收端用私钥解密, 整个过程中不依赖安全的密钥交换, 所以在不可信的环境下也能实现安全通信. 但非对称密码相对更复杂, 加解密的过程消耗的资源更多, 所以很多情况下是把这两种方式结合起来, 先利用非对称密码协商出对称密钥, 之后用对称密码进行通信加密, https协议就有这样的一个过程. </p>
+<h2 id="fei-dui-cheng-mi-ma-qian-ming-yan-zheng-mo-shi">非对称密码-签名验证模式</h2>
+<p>数字签名的意义在于让其他人知道数据是谁产生的. 用私钥加密的数据只能用对应的公钥解开, 换个角度如果数据能用某个公钥解开, 那这个数据只能是对应的私钥加密来的. 又由于只有私钥持有者可以用私钥加密, 所以这个数据必然是该持有者产生的. 而且公钥是对外公开的, 所以任何人都可以用公钥去验证密文是不是用对应私钥产生的, 利用这些特性就可以实现数字签名. </p>
+
+  
+  
+    
+    
+  
+  <img src="https://dlzht.github.io/image/001_05_A.png" alt="image 404" class="center" decoding="async" loading="lazy"/>
+
+<p>比如我们要发布一个软件包时, 用私钥对软件包进行加密得到密文, 然后将密文和原软件包一起发布出去. 拿到软件包和密文的用户, 就可以用我们的公钥去解密文, 如果解密的结果和软件包一样, 那就说明密文确实是我们生成的, 也说明软件包是我们认可的. 密文就相当于是对软件包做的签名, 签名本身可以证明签名者是谁, 而签名的内容证明了签名者对原文的认可. </p>
+
+  
+  
+    
+    
+  
+  <img src="https://dlzht.github.io/image/001_06_A.png" alt="image 404" class="center" decoding="async" loading="lazy"/>
+
+<p>在现实情况中, 为了提高效率, 签名通常是对原数据的哈希做加密, 而不是直接加密原数据. OpenPGP, 许多Linux发行版的包管理系统, PDF的电子签名等等, 都用到了哈希加非对称密码的方式. </p>
+<p><em>哈希也叫做散列, 杂凑, 消息摘要等, 消息摘要更加形象些, 类比于文章摘要是对一篇文章的概括简述, 消息摘要就是对一段数据的提炼压缩. 常见的哈希算法有MD5, Sha1, Sha2等, 同一种哈希算法对同一文件做计算, 得到的结果是相同的, 而不同的文件计算出来的结果通常是不同的(有概率会相同). 不像文章摘要出来依然是读得通顺的语句, 哈希的结果只是一段二进制数据.</em></p>
+<pre data-lang="bash" style="background-color:#272822;color:#f8f8f2;" class="language-bash "><code class="language-bash" data-lang="bash"><span>// 计算 ABC 的 md5
+</span><span>// 902fbdd2b1df0c4f70b4a5d23525e932
+</span><span style="color:#66d9ef;">echo </span><span style="font-style:italic;color:#fd971f;">-n</span><span> ABC </span><span style="color:#f92672;">| </span><span>md5sum
+</span></code></pre>
+<h2 id="shu-zi-zheng-shu">数字证书</h2>
+<p>数字证书也叫做公钥证书(public key certificate), 数字身份(digital identity)等, 从这些名称可以猜想到证书是里包含了身份信息和密钥信息的. 身份信息可能是个人姓名, 证件号码, 企业名称, 信用代码, 电子邮箱或者域名等待, 密钥信息则包含公钥, 密钥算法等. 数字证书的作用就是用来把身份信息和密钥信息关联起来, 证明某个密钥是属于某个身份的. </p>
+<pre style="background-color:#272822;color:#f8f8f2;"><code><span>-----BEGIN CERTIFICATE-----
+</span><span>MIIEozCCBEmgAwIBAgIQTij3hrZsGjuULNLEDrdCpTAKBggqhkjOPQQDAjCBjzELMAkGA1UEBhMCR0IxGzAZBgNVBAgTEkdyZWF0ZXIgTWFuY2hlc3RlcjEQMA4GA1UEBxMHU2FsZm9yZDEYMBYGA1UEChMPU2VjdGlnbyBMaW1pdGVkMTcwNQYDVQQDEy5TZWN0aWdvIEVDQyBEb21haW4gVmFsaWRhdGlvbiBTZWN1cmUgU2VydmVyIENBMB4XDTI0MDMwNzAwMDAwMFoXDTI1MDMwNzIzNTk1OVowFTETMBEGA1UEAxMKZ2l0aHViLmNvbTBZMBMGByqGSM49AgEGCCqGSM49AwEHA0IABARO/Ho9XdkY1qh9mAgjOUkWmXTb05jgRulKciMVBuKB3ZHexvCdyoiCRHEMBfFXoZhWkQVMogNLo/lW215X3pGjggL+MIIC+jAfBgNVHSMEGDAWgBT2hQo7EYbhBH0Oqgss0u7MZHt7rjAdBgNVHQ4EFgQUO2g/NDr1RzTK76ZOPZq9Xm56zJ8wDgYDVR0PAQH/BAQDAgeAMAwGA1UdEwEB/wQCMAAwHQYDVR0lBBYwFAYIKwYBBQUHAwEGCCsGAQUFBwMCMEkGA1UdIARCMEAwNAYLKwYBBAGyMQECAgcwJTAjBggrBgEFBQcCARYXaHR0cHM6Ly9zZWN0aWdvLmNvbS9DUFMwCAYGZ4EMAQIBMIGEBggrBgEFBQcBAQR4MHYwTwYIKwYBBQUHMAKGQ2h0dHA6Ly9jcnQuc2VjdGlnby5jb20vU2VjdGlnb0VDQ0RvbWFpblZhbGlkYXRpb25TZWN1cmVTZXJ2ZXJDQS5jcnQwIwYIKwYBBQUHMAGGF2h0dHA6Ly9vY3NwLnNlY3RpZ28uY29tMIIBgAYKKwYBBAHWeQIEAgSCAXAEggFsAWoAdwDPEVbu1S58r/OHW9lpLpvpGnFnSrAX7KwB0lt3zsw7CAAAAY4WOvAZAAAEAwBIMEYCIQD7oNz/2oO8VGaWWrqrsBQBzQH0hRhMLm11oeMpg1fNawIhAKWc0q7Z+mxDVYV/6ov7f/i0H/aAcHSCIi/QJcECraOpAHYAouMK5EXvva2bfjjtR2d3U9eCW4SU1yteGyzEuVCkR+cAAAGOFjrv+AAABAMARzBFAiEAyupEIVAMk0c8BVVpF0QbisfoEwy5xJQKQOe8EvMU4W8CIGAIIuzjxBFlHpkqcsa7UZy24y/B6xZnktUw/Ne5q5hCAHcATnWjJ1yaEMM4W2zU3z9S6x3w4I4bjWnAsfpksWKaOd8AAAGOFjrv9wAABAMASDBGAiEA+8OvQzpgRf31uLBsCE8ktCUfvsiRT7zWSqeXliA09TUCIQDcB7Xn97aEDMBKXIbdm5KZ9GjvRyoF9skD5/4GneoMWzAlBgNVHREEHjAcggpnaXRodWIuY29tgg53d3cuZ2l0aHViLmNvbTAKBggqhkjOPQQDAgNIADBFAiEAru2McPr0eNwcWNuDEY0a/rGzXRfRrm+6XfZeSzhYZewCIBq4TUEBCgapv7xvAtRKdVdi/b4m36Uyej1ggyJsiesA
+</span><span>-----END CERTIFICATE-----
+</span></code></pre>
+<p>上面是github.com的一张域名证书, 我们可以先保存到文件, 然后用<code>openssl x509 -in 文件名 -text</code>(或者<a rel="noopener" target="_blank" href="https://www.ssleye.com/ssltool/cer_check.html">在线工具</a>)来查看里面的信息. 如下可以看到证书中包含了颁发者(issuer), 持有者(subject, 上文中说的身份信息), 有效期, 公钥信息还有签名信息等内容. </p>
+<pre style="background-color:#272822;color:#f8f8f2;"><code><span>// 证书序列号
+</span><span>Serial Number: 4e:28:f7:86:b6:6c:1a:3b:94:2c:d2:c4:0e:b7:42:a5
+</span><span>// 签名算法
+</span><span>Signature Algorithm: ecdsa-with-SHA256
+</span><span>// 证书颁发者
+</span><span>Issuer: C=GB, ST=Greater Manchester, L=Salford, O=Sectigo Limited, CN=Sectigo ECC Domain Validation Secure Server CA
+</span><span>// 证书有效期
+</span><span>Validity
+</span><span>  Not Before: Mar  7 00:00:00 2024 GMT
+</span><span>  Not After : Mar  7 23:59:59 2025 GMT
+</span><span>// 证书持有者
+</span><span>Subject: CN=github.com
+</span><span>// 持有者公钥信息
+</span><span>Subject Public Key Info:
+</span><span>  Public Key Algorithm: id-ecPublicKey
+</span><span>  Public-Key: (256 bit) ...
+</span></code></pre>
+<p>前文中提到公钥可以验证数字签名, 而数字证书里包含了公钥, 所以数字证书也可以用来验证签名. 而且数字证书把密钥和身份关联了起来, 所以数字证书不仅可以验证签名, 还可以知道这个签名是谁签的. 好处是这样我们就不必记住哪个公钥是属于谁的, 因为从数字证书里就能拿到直观的身份信息. </p>
+<p>还是用发布软件的例子, 假设我们有了一张数字证书. 在发布软件时把证书和签名也一起发布出去. 用户获取到发布的软件后, 就可以拿证书里的公钥去验证签名是不是匹配, 如果签名和公钥对得上, 再看一下证书里的身份信息, 就可以知道这个软件包是谁发布的了. 以前在没有软件商店这类的应用时需要自己去下载软件, 要核验来源是不是官方的, 就可以验证软件签名里的身份, 现在这部分验证工作通常由商店应用代劳了. </p>
+<p>那么证书是怎么来的呢, 事实上任何人都可以通过证书工具(比如openssl)来生成证书. 上面说到证书关联了密钥信息和身份信息, 那岂不意味着任何人都可以对这两者做关联？如果我们把自己的密钥信息和别人身份信息绑在一起生成一张证书, 岂不是可以冒充去发布软件包了？是的, 这样的证书是可以生成的, 不过没有什么用, 因为对其他人来说这证书是不可信的, 其他人“只”会信任CA机构颁发的证书. </p>
+<h2 id="caji-gou-yu-zi-jian-ca">CA机构与自建CA</h2>
+<p>CA的全称是Certificate Authority, 即证书授权中心, 是中心化权威性的服务, 主要负责数字证书的管理和颁发. 普通用户对CA默认是信任的, 如果看到是CA签发的证书, 就会信任这证书里的密钥是属于证书里的身份的. CA的可信不是逻辑上的证明, 而是来源于权威的背书. 在数字证书的颁发过程中, CA需要核实了密钥信息和身份信息, 核验通过后对这些信息做数字签名, 然后把密钥, 身份和签名信息放一起生成证书颁发给用户.</p>
+<pre style="background-color:#272822;color:#f8f8f2;"><code><span>Issuer: C=GB, ST=Greater Manchester, L=Salford, O=Sectigo Limited, CN=Sectigo ECC Domain Validation Secure Server CA
+</span><span>Signature Algorithm: ecdsa-with-SHA256
+</span><span>Signature Value: ...
+</span></code></pre>
+<p>上文中解析github.com域名证书的结果中, 我们也可以看到签名相关的信息. 我们之所以信任这张证书, 是基于两点原因:</p>
+<ol>
+<li>证书是CA颁发的的, 而我们是选择信任这个CA的</li>
+<li>证书的签名是正确的, 证明CA核验过了密钥和身份</li>
+</ol>
+<p>自建CA和权威CA的功能一样都可以管理颁发证书, 只不过自建的CA没有权威性, 所以不会被其他人信任. 但也不是没有用武之地, 比如家庭局域网内的设备, 就可以自己签发证书然后互相信任, 有些智能家居协议就是这样实现的. 再比如公司内部, 如果用权威CA来发证书的话, 可能要付出一笔费用, 这时候就可以考虑自建内部CA, 给相关人员发证书. </p>
+
+  
+  
+    
+    
+  
+  <img src="https://dlzht.github.io/image/001_07_A.png" alt="image 404" class="center" decoding="async" loading="lazy"/>
+
+<p>不是权威CA就是可信的, 权威CA也可能会失职, 甚至可能会丢失密钥, 而且一旦发生造成危害是相当大的；也不是非权威CA就是不可信的, 有些信誉可靠, 办事严谨的机构, 用户也可以选择信任他们. 所以信任哪些CA不是固定不变的, 在Firefox浏览器(<strong>设置-&gt;隐私与安全-&gt;证书-&gt;查看证书-&gt;证书颁发机构</strong>, 如上图), Adobe Acrobat Reader(pdf阅读器)等软件中, 信任的CA都是可配置的. </p>
+<h2 id="gen-zheng-shu-he-zheng-shu-lian">根证书和证书链</h2>
+<p>上文里提到数字证书里是包含了证书颁发者的签名的, 如果证书的颁发者和持有者是同一个身份, 也就是是自己颁发给自己的, 自己证明自己有效, 这样的证书就是根证书, 也叫做自签证书, 因为它不需要其他证书来证明, 是自己给自己做的签名. CA机构的顶级证书通常是自签证书, 因为他们有效性不是他方证明的, 而是“权威”保证的. 我们也可以生成自己的自签证书, 然后用这样的根证书来自建CA. </p>
+<p>那证书链又是什么呢？设想某个机构拿到了签发证书的资质, 也就有权威的根证书了, 但核验身份和管理证书这些事不想自己去做, 而是想交给信任的子机构去做. 这时候, 就可以先签发一张中级证书给子机构, 赋予次级证书可以颁发其他证书的能力, 然后子机构就可以再去签发下级证书. 这样, 根证书, 中级证书, 下级证书, 一级信任一级, 就像链条一节扣一节, 串联起来就构成了证书链. </p>
+<p>在Firefox中可以直接查看网站的证书连, 比如打开https://github.com, 然后点击地址栏旁边的小锁, 选择<strong>安全链接-&gt;更多信息-&gt;安全-&gt;查看证书</strong>, 就可以看到完整的的证书链. 左边的<code>github.com</code>是下级证书, 中间的<code>Sectigo ECC Domain Validation Secure Server CA</code>是中级证书, 右边的<code>USERTrust ECC Certification Authority</code>是根证书. </p>
+
+  
+  
+    
+    
+  
+  <img src="https://dlzht.github.io/image/001_08_A.png" alt="image 404" class="center" decoding="async" loading="lazy"/>
+
+<p>查看这里的三张证书可以验证上文所说的, 下级证书的颁发者是中级证书, 中级证书的颁发者是根证书. 中级证书的<strong>密钥用途</strong>项中有Certificate Signing, 代表这张中级证书被赋予了签发下级证书的能力. 根证书中的颁发者和持有者两项是一样的, 是一张自签证书. </p>
+<p>根证书到最终的证书之间, 可能会间隔多张中级证书, 因而证书链的长度也不是固定的. 要校验最终证书的有效性, 则需要先校验最终证书的上级证书, 再校验上上级, 一直校验到根证书为止. CA机构也可能会出于其他的原因签发中级证书, 比如不同场景, 或者不同的年份, 或者不同的地域, 由不同的中级证书负责签发. </p>
+<h2 id="crlhe-ocsp">CRL和OCSP</h2>
+<p>就像身份证的挂失机制一样, 除了写在证书里的有效期信息, CA还提供了吊销证书的方式能够让证书提前失效. 但因为已经发出去的证书本身在吊销前后并不会有区别, 所以CA还提供实时查询证书状态的服务, 这就是CRL和OCSP的作用, 证书里也包含这些服务的地址信息. </p>
+<pre style="background-color:#272822;color:#f8f8f2;"><code><span>Authority Information Access:
+</span><span>  CA Issuers - URI:http://crt.sectigo.comSectigoECCDomainValidationSecureServerCA.crt
+</span><span>  OCSP - URI:http://ocsp.sectigo.com
+</span></code></pre>
+<p>CRL的全称是Certificate Revocation List, 即证书吊销列表, OCSP的全称是Online Certificate Status Protocol, 即在线证书状态协议. OCSP解决了CRL存在的一些问题, 可以看做是替代CRL的更先进的方式. OCSP响应本身也是包含CA的数字签名的, 相对于CA证明了证书是有效的. </p>
+<p>PDF开启长期签名验证(LTV)时会把OSCP响应写入签名中, 这就证明了在生成这个数字签名时证书确实是有效的. 设想假如我们的私钥失窃了, 那么拿到私钥的人可以冒充我们去做数字签名. 我们请求CA吊销原来的证书, 那冒充者在数字签名时就没办法拿到有效的OCSP响应, 也就是无法让CA证明此时证书依然是有效的. 而且冒充者没办法通过CA的身份审核拿到新的证书, 就无法证明这对密钥还是我们的, 所以也没办法继续冒充了. </p>
+<h2 id="chang-qi-zheng-shu-he-shi-jian-zheng-shu">长期证书和事件证书</h2>
+<p>就像很多食品包装上印有生产日期和保质期一样, 证书里包含了证书的有效期, 开始时间(not before time)和结束时间(not after time), 在这个有效时间段内这张证书才是有效的. 事件证书就像即时食品有效期很短, 证书颁发出来后马上使用, 一般不会重复使用, 一张证书用来做一件事, 所以叫做事件证书. 在使用一些服务时会需要先同意一些些协议, 在同意这个过程中事件证书很可能就发挥了作用. 而长期证书的有效期比较长, 会重复多次使用, 像域名证书, 企业法人证书, 网络通讯证书等一般都是长期证书. </p>
+<h2 id="ke-xin-shi-jian-chuo">可信时间戳</h2>
+<p>类似于数字证书是把身份和密钥信息关联起来, 可信时间戳是把时间信息和数据信息关联在一起, 也就是用来证明某个时间点存在某个数据, 类似于提供证书服务的CA, 可信时间戳服务也是一种中心化的权威性服务. 数字签名可以证明某个密钥产生了某个数据, 数字证书可以证明某个密钥是属于某个身份的, 可信时间戳可以证明某个时间有某个数据, 把这些结合起来, 就可以证明某个身份在某个时间产生了某个数据了(比如电子签名中, 就是谁在什么时间签署了什么文件). </p>
+<h2 id="csr">CSR</h2>
+<p>CSR证书签发请求, 全称是Certificate Signing Request, 如果我们想去CA那申请数字证书, 就向需要CA提交CSR, CSR里面包含了身份信息和密钥信息, CA核验身份后就可以根据CSR里的信息签发证书了. </p>
+<h2 id="xiang-guan-ming-ling">相关命令</h2>
+<ol>
+<li>
+<p>生成RSA私钥, 密钥长度为2048位, 保存到private-key<br />
+<code>openssl genrsa -out private-key 2048</code></p>
+</li>
+<li>
+<p>根据私钥生成公钥, 保存到public-key<br />
+<code>openssl rsa -in ./private-key -pubout -out public-key</code></p>
+</li>
+<li>
+<p>根据私钥生成CSR, 保存到example01.csr<br />
+<code>openssl req -new -key ./private-key -out example01.csr</code></p>
+</li>
+<li>
+<p>根据CSR生成自签证书, 保存到example01.crt<br />
+<code>openssl x509 -req -in example01.csr -out example01.crt -signkey ./private-key -days 3650</code></p>
+</li>
+<li>
+<p>查看证书信息<br />
+<code>openssl x509 -in example.crt -text</code></p>
+</li>
+<li>
+<p>用根证书颁发证书<br />
+<code>openssl x509 -req -in example02.csr -days 365 -CA example01.crt -CAkey private-key -CAcreateserial -out example02.crt</code></p>
+</li>
+</ol>
+</br>
+<p><em>-&gt; 如果文章有不足之处或者有改进的建议，可以在<a rel="noopener" target="_blank" href="https://github.com/dlzht/dlzht.github.io/discussions/2">这边</a>告诉我，也可以发送给我的<a href="mailto:dlzht@protonmail.com">邮箱</a></em></p>
+
+        </div>
+
+        
+        <div class="pagination">
+            <!-- <div class="pagination__title"> -->
+                <!-- <span class="pagination__title-h">++</span> -->
+                <!-- <hr /> -->
+            <!-- </div> -->
+            <div class="pagination__buttons">
+                
+                    <span class="button next">
+                        <a href="https://dlzht.github.io/002-yi-wen-bing-fa-he-bing-xing/">
+                            <span class="button__text">译文: 并发和并行</span>&nbsp;
+                            <span class="button__icon">→</span>
+                        </a>
+                    </span>
+                </div>
+        </div>
+    
+    </div>
+
+    </div>
+
+    
+    <footer class="footer">
+        <div class="footer__inner">
+                <div class="copyright copyright--user">Email:&nbsp;<a href=mailto:dlzht@protonmail.com>dlzht@protonmail.com</a></div>
+            </div>
+    </footer>
+    
+
+</div>
+</body>
+
+</html>

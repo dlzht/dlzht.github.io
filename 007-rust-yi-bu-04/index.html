@@ -1,0 +1,317 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <script async src="https://www.googletagmanager.com/gtag/js?id=G-Q8CTC2C6DM"></script>
+    <script>
+        window.dataLayer = window.dataLayer || [];
+        function gtag(){dataLayer.push(arguments);}
+        gtag('js', new Date());
+        gtag('config', 'G-Q8CTC2C6DM');
+    </script>
+
+    <title></title>
+    
+    <meta http-equiv="content-type" content="text/html; charset=utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1">
+    <meta name="robots" content="noodp"/>
+
+    <link rel="stylesheet" href="https://dlzht.github.io/style.css">
+    <link rel="stylesheet" href="https://dlzht.github.io/color/blue-light.css">
+
+        <link rel="stylesheet" href="https://dlzht.github.io/color/background_light.css">
+    
+    <link rel="stylesheet" href="https://dlzht.github.io/font-hack-subset.css">
+
+    <meta name="description" content="">
+
+    <meta property="og:description" content="">
+    <meta property="og:title" content="">
+    <meta property="og:type" content="article">
+    <meta property="og:url" content="https://dlzht.github.io/007-rust-yi-bu-04/">
+
+    <meta name="twitter:card" content="summary_large_image">
+    <meta name="twitter:description" content="">
+    <meta name="twitter:title" content="">
+    <meta property="twitter:domain" content="dlzht.github.io">
+    <meta property="twitter:url" content="https://dlzht.github.io/007-rust-yi-bu-04/">
+
+    </head>
+
+<body class="">
+<div class="container">
+    
+    <header class="header">
+        <div class="header__inner">
+            <div class="header__logo">
+                    
+                <a href="https://dlzht.github.io" style="text-decoration: none;">
+                    <div class="logo">
+                      
+                            QianQi dlzht@protonmail.com
+                        
+                    </div>
+                </a>
+            </div>
+        </div>
+
+        
+        
+                <nav class="menu">
+            <ul class="menu__inner">
+                <li class="active"><a href="https://dlzht.github.io">主页</a></li>
+            
+                <li><a href="https://dlzht.github.io/tags">标签</a></li>
+            
+                <li><a href="https://dlzht.github.io/about">关于</a></li>
+            
+                <li><a href="https://dlzht.github.io/archive">归档</a></li>
+            </ul>
+        </nav>
+    
+    
+        
+    </header>
+    
+
+    <div class="content">
+        
+    <div class="post">
+        
+    <h1 class="post-title"><a href="https://dlzht.github.io/007-rust-yi-bu-04/">Rust异步4: Pin和自指类型</a></h1>
+    <div class="post-meta-inline">
+        
+    <span class="post-date">
+            2024-05-12
+        </span>
+
+    </div>
+
+    
+        <span class="post-tags-inline">
+                :: tags:&nbsp;
+                <a class="post-tag" href="https://dlzht.github.io/tags/rust/">#Rust</a>&nbsp;
+                <a class="post-tag" href="https://dlzht.github.io/tags/yi-bu/">#异步</a></span>
+    
+
+        <div class="post-content">
+            <p>在前面介绍Future模式的文章里, 简单讲了下poll方法里的入参Pin类型, 引入Pin是为了解决自指类型的问题, &quot;固定&quot;Future在内存中的位置. 这篇文章就来介绍自指类型是什么, 和Future有什么关系以及Pin是如何解决问题的这些内容.</p>
+<span id="continue-reading"></span><h2 id="zi-zhi-lei-xing-shi-shi-yao-hui-you-shi-yao-wen-ti">自指类型是什么, 会有什么问题</h2>
+<pre data-lang="rust" style="background-color:#272822;color:#f8f8f2;" class="language-rust "><code class="language-rust" data-lang="rust"><span style="font-style:italic;color:#66d9ef;">struct </span><span>SelfReference {
+</span><span>  data: </span><span style="font-style:italic;color:#66d9ef;">i32</span><span>,
+</span><span>  </span><span style="color:#75715e;">// pointer指向data
+</span><span>  pointer: * </span><span style="color:#f92672;">const </span><span style="font-style:italic;color:#66d9ef;">i32
+</span><span>}
+</span><span>
+</span><span style="font-style:italic;color:#66d9ef;">let </span><span style="color:#f92672;">mut</span><span> a1 </span><span style="color:#f92672;">=</span><span> SelfReference { data: </span><span style="color:#ae81ff;">1</span><span>, pointer: std::ptr::null() };
+</span><span style="color:#75715e;">// a1.pointer 指向了 a1.data
+</span><span>a1.pointer </span><span style="color:#f92672;">= &amp;</span><span>a1.data;
+</span><span style="color:#75715e;">// SelfReference { data: 1, pointer: 0x7fffffffd9d0 }, 1
+</span><span style="color:#f92672;">unsafe </span><span>{ println!(</span><span style="color:#e6db74;">&quot;</span><span style="color:#ae81ff;">{:?}</span><span style="color:#e6db74;">, </span><span style="color:#ae81ff;">{}</span><span style="color:#e6db74;">&quot;</span><span>, a1, </span><span style="color:#f92672;">*</span><span>(a1.pointer)); }
+</span></code></pre>
+<p>自指类型也叫做自引用类型, 指的是包含指向自身空间的指针的类型. 也就是说, 自指类型的实例里会有指针字段, 这个指针指向的地址又是和实例本身相关的. 比如上面的SelfReference就是自指类型, pointer字段指向了data字段, 把pointer指向的内容和data打印出来的结果是一样的.</p>
+<pre data-lang="rust" style="background-color:#272822;color:#f8f8f2;" class="language-rust "><code class="language-rust" data-lang="rust"><span style="font-style:italic;color:#66d9ef;">let </span><span style="color:#f92672;">mut</span><span> a1 </span><span style="color:#f92672;">=</span><span> SelfReference { data: </span><span style="color:#ae81ff;">1</span><span>, pointer: std::ptr::null() };
+</span><span>a1.pointer </span><span style="color:#f92672;">= &amp;</span><span>a1.data;
+</span><span style="color:#75715e;">// SelfReference { data: 1, pointer: 0x7fffffffd7f0 }, 1
+</span><span style="color:#f92672;">unsafe </span><span>{ println!(</span><span style="color:#e6db74;">&quot;</span><span style="color:#ae81ff;">{:?}</span><span style="color:#e6db74;">, </span><span style="color:#ae81ff;">{}</span><span style="color:#e6db74;">&quot;</span><span>, a1, </span><span style="color:#f92672;">*</span><span>(a1.pointer)); }
+</span><span style="font-style:italic;color:#66d9ef;">let </span><span style="color:#f92672;">mut</span><span> a2 </span><span style="color:#f92672;">=</span><span> SelfReference { data: </span><span style="color:#ae81ff;">0</span><span>, pointer: std::ptr::null() };
+</span><span>a2.pointer </span><span style="color:#f92672;">= &amp;</span><span>a2.data;
+</span><span style="color:#75715e;">// SelfReference { data: 0, pointer: 0x7fffffffd850 }, 0
+</span><span style="color:#f92672;">unsafe </span><span>{ println!(</span><span style="color:#e6db74;">&quot;</span><span style="color:#ae81ff;">{:?}</span><span style="color:#e6db74;">, </span><span style="color:#ae81ff;">{}</span><span style="color:#e6db74;">&quot;</span><span>, a2, </span><span style="color:#f92672;">*</span><span>(a2.pointer)); }
+</span><span>
+</span><span style="color:#75715e;">// 交换 a1 和 a2 的内容, 相当于 a1 和 a2 的内存地址变更了
+</span><span>std::mem::swap(</span><span style="color:#f92672;">&amp;mut</span><span> a1, </span><span style="color:#f92672;">&amp;mut</span><span> a2);
+</span><span style="color:#75715e;">// SelfReference { data: 0, pointer: 0x7fffffffd850 }, 1 
+</span><span style="color:#f92672;">unsafe </span><span>{ println!(</span><span style="color:#e6db74;">&quot;</span><span style="color:#ae81ff;">{:?}</span><span style="color:#e6db74;">, </span><span style="color:#ae81ff;">{}</span><span style="color:#e6db74;">&quot;</span><span>, a1, </span><span style="color:#f92672;">*</span><span>(a1.pointer)); }
+</span><span style="color:#75715e;">// SelfReference { data: 1, pointer: 0x7fffffffd7f0 }, 0
+</span><span style="color:#f92672;">unsafe </span><span>{ println!(</span><span style="color:#e6db74;">&quot;</span><span style="color:#ae81ff;">{:?}</span><span style="color:#e6db74;">, </span><span style="color:#ae81ff;">{}</span><span style="color:#e6db74;">&quot;</span><span>, a2, </span><span style="color:#f92672;">*</span><span>(a2.pointer)); 
+</span></code></pre>
+<p>当实例在内存中的位置移动(比特复制)时, 自指类型就会出现问题, 比如<code>swap</code>交换上面的a1和a2, 把a1的数据移到了a2的位置, a2的数据移到了a1的位置. a1中现在data是0, 而pointer指向的内容还是1, 因为pointer指向的不是&quot;自己&quot;的data了, a2也是同样的情况.</p>
+<p>一方面, 会导致实例在内存中被移动的情况很常见, 比如函数入参, 数组扩容, swap, Box::new等等; 另一方面, 虽然自指类型不算常见, 但Rust并不限制我们定义自指类型, 而且在Future中出现了自指类型的身影. 所以对于这种可能导致未定义行为的陷阱, Rust应该会觉得有必要做些什么.</p>
+<h2 id="zi-zhi-lei-xing-he-futureyou-shi-yao-guan-xi">自指类型和Future有什么关系</h2>
+<pre data-lang="rust" style="background-color:#272822;color:#f8f8f2;" class="language-rust "><code class="language-rust" data-lang="rust"><span>async </span><span style="font-style:italic;color:#66d9ef;">fn </span><span style="color:#a6e22e;">foo</span><span>() {
+</span><span>  </span><span style="font-style:italic;color:#66d9ef;">let</span><span> a </span><span style="color:#f92672;">= </span><span style="color:#ae81ff;">1</span><span>;
+</span><span>  </span><span style="font-style:italic;color:#66d9ef;">let</span><span> b </span><span style="color:#f92672;">= &amp;</span><span>a;
+</span><span>  </span><span style="color:#75715e;">// 任务在这会让出执行
+</span><span>  </span><span style="color:#66d9ef;">future1</span><span>().await;
+</span><span>  </span><span style="color:#75715e;">// a和b是跨await的变量
+</span><span>  </span><span style="font-style:italic;color:#66d9ef;">let</span><span> c </span><span style="color:#f92672;">=</span><span> a </span><span style="color:#f92672;">+ *</span><span>b;
+</span><span>}
+</span></code></pre>
+<p>之前的文章说到编译器会把异步函数转换成<code>Future</code>实现, 指令和数据信息都会保存在状态机中. 在上面的异步函数中, a和b是跨域await点的变量, 状态机在下次继续执行时需要用到这两个变量, 所以a和b需要保存在状态机中, b又是指向a的指针, 所以编译器生成的匿名Future就会是自指类型.</p>
+<p>不仅是Future, 各种各样的迭代器, 还有正在开发中的生成器, 都是用状态机来实现的. 如果这些状态机要维护的状态里, 有指向自身的指针字段, 那就变成了自指类型, 都会存在内存移动时出现问题. 由于历史原因, 迭代器Iterator的next方法里并不是Pin, 这和Future的poll方法不同, 但最近实现的生成器Coroutine的resume方法则已引入了Pin.</p>
+<h2 id="pinde-ding-yi-he-gong-zuo-yuan-li">Pin的定义和工作原理</h2>
+<p>虽然显式的自指类型并不常见, 但Future, Iterator和Coroutine这些类型对Rust来说是如此重要, 所以自指类型会造成的潜的影响是如此广泛. 自指类型出问题发生在内存位置移动时, 所以要解决问题一方面可以从类型入手, 另一方面可以从&quot;移动&quot;入手.</p>
+<p>Rust目前选择的方向是处理&quot;移动&quot;, 给出的解决方案是Pin. 在开始介绍Pin前, 有必要先介绍下Unpin和!Unpin这两个标记类型, 根据类型实例在内存中移动是否安全, Rust把所有类型归入这两类.</p>
+<pre data-lang="rust" style="background-color:#272822;color:#f8f8f2;" class="language-rust "><code class="language-rust" data-lang="rust"><span style="color:#f92672;">pub</span><span> auto </span><span style="font-style:italic;color:#66d9ef;">trait </span><span>Unpin {}
+</span><span style="color:#75715e;">// 为类型实现Unpin特征
+</span><span style="font-style:italic;color:#66d9ef;">impl </span><span>Unpin </span><span style="color:#f92672;">for </span><span>PinStruct {}
+</span></code></pre>
+<p>Unpin的意思是不需要固定, 也就是说实现了Unpin的类型在内存中移动是安全的. 几乎能想到的类型, 比如i32, char, String等等, 都是Unpin类型. 因为在内存中移动Unpin类型不会导致未定义行为, 所以Unpin不需要Pin提供额外的保障, Pin对于Unpin类型的影响就像透明一样.</p>
+<pre data-lang="rust" style="background-color:#272822;color:#f8f8f2;" class="language-rust "><code class="language-rust" data-lang="rust"><span style="color:#75715e;">// 方式1: 显示实现 !Unpin
+</span><span style="font-style:italic;color:#66d9ef;">struct </span><span>NotUnPinStruct1;
+</span><span style="font-style:italic;color:#66d9ef;">impl </span><span>!Unpin for NotUnPinStruct1 {}
+</span><span>
+</span><span style="color:#75715e;">// 方式2: 包含 !Unpin 的字段
+</span><span style="font-style:italic;color:#66d9ef;">struct </span><span>NotUnPinStruct2 {
+</span><span>  _marker: PhantomPinned  
+</span><span>}
+</span></code></pre>
+<p>!Unpin与Unpin相反, 意思是需要固定, 实现了!Unpin的类型在内存中移动是不安全的. !Unpin类型并不常见, 有可能会遇见的, 一是上面的Future这类状态机, 另一个是标记类型PhantomPinned. 我们要自定义!Unpin类型的话, 可以手动为类型实现!Unpin, 也可以在类型里包含!Unpin的字段. 因为在内存中移动!Unpin类型会导致未定义行为, 所以Pin方案要处理的主要就是!Unpin类型.</p>
+<pre data-lang="rust" style="background-color:#272822;color:#f8f8f2;" class="language-rust "><code class="language-rust" data-lang="rust"><span style="color:#f92672;">pub </span><span style="font-style:italic;color:#66d9ef;">struct </span><span>Pin&lt;Ptr&gt; {
+</span><span>  </span><span style="color:#f92672;">pub </span><span>__pointer: Ptr,
+</span><span>}
+</span></code></pre>
+<p>Pin的完整写法是<code>Pin&lt;P&lt;T&gt;&gt;</code>, 其中Pin是&quot;外层&quot;指针, P是&quot;中级&quot;的指针. <code>Pin&lt;P&lt;T&gt;&gt;</code>给出的承诺是, 如果使用者按约定构造了Pin, 那么从T被Pin住开始到被释放, T在内存中的位置都不会改变(T为Unpin时不限制).</p>
+<p>仅借助Rust的语法是没办法实现Pin应该提供的承诺的, 所以Pin需要使用者遵守一定的约定, 约定的内容针对&quot;中级&quot;的P指针的, 有两条:</p>
+<ol>
+<li>P指针的解引用方法<code>deref</code>和<code>deref_mut</code>不能移动T, 因为Pin的<code>as_ref</code>和<code>as_mut</code>会依赖于这两个方法</li>
+<li>当<code>Pin&lt;P&lt;T&gt;&gt;</code>被释放后, P指针指向的T也不能再被移动. 因为Pin只能在自己的生命周期内起作用, 所以超出Pin生命周期的&quot;承诺&quot;需要靠&quot;约定&quot;来实现.</li>
+</ol>
+<pre data-lang="rust" style="background-color:#272822;color:#f8f8f2;" class="language-rust "><code class="language-rust" data-lang="rust"><span style="color:#75715e;">// T 是 Unpin 类型, 方法是安全的
+</span><span style="font-style:italic;color:#66d9ef;">impl</span><span>&lt;P: Deref&lt;Target: Unpin&gt;&gt; Pin&lt;P&gt; {
+</span><span>  </span><span style="color:#f92672;">pub </span><span style="font-style:italic;color:#66d9ef;">const fn </span><span style="color:#a6e22e;">new</span><span>(</span><span style="font-style:italic;color:#fd971f;">pointer</span><span>: P) -&gt; Pin&lt;P&gt; { </span><span style="color:#f92672;">unsafe </span><span>{ Pin::new_unchecked(pointer) }
+</span><span>}
+</span><span>
+</span><span style="color:#75715e;">// T 可以是 !Unpin 的, 方法是不安全的
+</span><span style="font-style:italic;color:#66d9ef;">impl</span><span>&lt;P: Deref&gt; Pin&lt;P&gt; {
+</span><span>  </span><span style="color:#f92672;">pub </span><span style="font-style:italic;color:#66d9ef;">const </span><span style="color:#f92672;">unsafe </span><span style="font-style:italic;color:#66d9ef;">fn </span><span style="color:#a6e22e;">new_unchecked</span><span>(</span><span style="font-style:italic;color:#fd971f;">pointer</span><span>: P) -&gt; Pin&lt;P&gt; { Pin { pointer }
+</span><span>}
+</span></code></pre>
+<p>所以Pin提供了两个构造方法, 一个是针对Unpin的<code>new</code>方法, 是safe的, 因为Unpin在内存中移动是安全的, 不需要Pin提供额外的保障; 另一个是针对!Unpin的<code>new_unchecked</code>方法, 是unsafe的, 因为使用这个方法需要开发者遵守上面的约定, 这边没法通过Rust语法来确保正确性.</p>
+<p>归纳一下在内存中移动T的情况, 可以分成两种类型, 一是有T的所有权, 二是有T的可变引用<code>&amp;mut T</code>. 而在Rust中能拿到变量的所以权时, 也就可以间接拿到拿到可变引用, 所以这两种情况可以合而为一, 即要想在内存中移动T, 就要能拿到T的可变引用<code>&amp;mut T</code>.</p>
+<p>前文讲到Pin是从&quot;移动&quot;方面入手来解决自指类型的问题, 所以Pin的思路就是构造出<code>Pin&lt;P&lt;T&gt;&gt;</code>后, 就不再通过安全方法暴露<code>&amp;mut T</code>, 下面就来看Pin提供给开发者的那些方法.</p>
+<pre data-lang="rust" style="background-color:#272822;color:#f8f8f2;" class="language-rust "><code class="language-rust" data-lang="rust"><span style="color:#75715e;">// T 是 Unpin 类型, 方法是安全的
+</span><span style="font-style:italic;color:#66d9ef;">impl</span><span>&lt;P: Deref&lt;Target: Unpin&gt;&gt; Pin&lt;P&gt; {
+</span><span>  </span><span style="color:#f92672;">pub </span><span style="font-style:italic;color:#66d9ef;">const fn </span><span style="color:#a6e22e;">into_inner</span><span>(</span><span style="font-style:italic;color:#fd971f;">pin</span><span>: Pin&lt;P&gt;) -&gt; P { pin.pointer }
+</span><span>}
+</span><span>
+</span><span style="color:#75715e;">// T 可以是 !Unpin 的, 方法是不安全的
+</span><span style="font-style:italic;color:#66d9ef;">impl</span><span>&lt;P: Deref&gt; Pin&lt;P&gt; {
+</span><span>  </span><span style="color:#f92672;">pub </span><span style="font-style:italic;color:#66d9ef;">const </span><span style="color:#f92672;">unsafe </span><span style="font-style:italic;color:#66d9ef;">fn </span><span style="color:#a6e22e;">into_inner_unchecked</span><span>(</span><span style="font-style:italic;color:#fd971f;">pin</span><span>: Pin&lt;P&gt;) -&gt; P { pin.pointer }
+</span><span>}
+</span></code></pre>
+<p>首先是获取<code>P&lt;T&gt;</code>的两个方法, 针对Unpin类型的<code>into_inner</code>是安全的, 因为Unpin本身就可以安全地移动, 直接把<code>P&lt;Unpin&gt;</code>返回出去不会有问题. 而针对!Unpin类型的<code>into_inner_unchecked</code>是不安全的, 因为不确定<code>P&lt;!Unpin&gt;</code>会不会把<code>&amp;mut T</code>暴露出去, 所以需要开发者自己保证.</p>
+<pre data-lang="rust" style="background-color:#272822;color:#f8f8f2;" class="language-rust "><code class="language-rust" data-lang="rust"><span style="color:#75715e;">// 如果 P 实现了 Deref, Pin&lt;P&lt;T&gt;&gt; -&gt; Pin&lt;&amp; T&gt;
+</span><span style="font-style:italic;color:#66d9ef;">impl</span><span>&lt;P: Deref&gt; Pin&lt;P&gt; {
+</span><span>  </span><span style="color:#f92672;">pub </span><span style="font-style:italic;color:#66d9ef;">fn </span><span style="color:#a6e22e;">as_ref</span><span>(</span><span style="color:#f92672;">&amp;</span><span style="font-style:italic;color:#fd971f;">self</span><span>) -&gt; Pin&lt;</span><span style="color:#f92672;">&amp;</span><span style="font-style:italic;color:#66d9ef;">P::</span><span>Target&gt; { </span><span style="color:#f92672;">unsafe </span><span>{ Pin::new_unchecked(</span><span style="color:#f92672;">&amp;*</span><span>self.pointer) } }
+</span><span>}
+</span><span>
+</span><span style="color:#75715e;">// 如果 P 实现了 DerefMut, Pin&lt;P&lt;T&gt;&gt; -&gt; Pin&lt;&amp;mut T&gt;
+</span><span style="font-style:italic;color:#66d9ef;">impl</span><span>&lt;P: DerefMut&gt; Pin&lt;P&gt; {
+</span><span>  </span><span style="color:#f92672;">pub </span><span style="font-style:italic;color:#66d9ef;">fn </span><span style="color:#a6e22e;">as_mut</span><span>(</span><span style="color:#f92672;">&amp;mut </span><span style="font-style:italic;color:#fd971f;">self</span><span>) -&gt; Pin&lt;</span><span style="color:#f92672;">&amp;mut </span><span style="font-style:italic;color:#66d9ef;">P::</span><span>Target&gt; { </span><span style="color:#f92672;">unsafe </span><span>{ Pin::new_unchecked(</span><span style="color:#f92672;">&amp;mut *</span><span>self.pointer) } }
+</span><span>}
+</span></code></pre>
+<p>接着是把<code>Pin&lt;p&lt;T&gt;&gt;</code>转换到<code>Pin&lt;&amp;T&gt;</code>的方法, 即把中间这一层可能是各种类型的P指针, 转换到统一的引用<code>&amp;</code>形式. 根据P是否是可变的, 有<code>as_ref</code>和<code>as_mut</code>两个方法. 这两个方法都是安全的, 因为从<code>Pin&lt;&amp;T&gt;</code>拿不到T的可变引用.</p>
+<pre data-lang="rust" style="background-color:#272822;color:#f8f8f2;" class="language-rust "><code class="language-rust" data-lang="rust"><span style="color:#75715e;">// Pin&lt;P&lt;T&gt;&gt;调用as_ref转换成Pin&lt;&amp;T&gt;后就可以调用
+</span><span style="font-style:italic;color:#66d9ef;">impl</span><span>&lt;</span><span style="color:#f92672;">&#39;a</span><span>, T: </span><span style="background-color:#f92672;color:#f8f8f0;">?</span><span>Sized&gt; Pin&lt;</span><span style="color:#f92672;">&amp;&#39;a</span><span> T&gt; {
+</span><span>  </span><span style="color:#f92672;">pub </span><span style="font-style:italic;color:#66d9ef;">const fn </span><span style="color:#a6e22e;">get_ref</span><span>(</span><span style="font-style:italic;color:#fd971f;">self</span><span>) -&gt; </span><span style="color:#f92672;">&amp;&#39;a</span><span> T { self.pointer }
+</span><span>
+</span><span>  </span><span style="color:#f92672;">pub unsafe </span><span style="font-style:italic;color:#66d9ef;">fn </span><span style="color:#a6e22e;">map_unchecked</span><span>&lt;U, F&gt;(</span><span style="font-style:italic;color:#fd971f;">self</span><span>, </span><span style="font-style:italic;color:#fd971f;">func</span><span>: F) -&gt; Pin&lt;</span><span style="color:#f92672;">&amp;&#39;a</span><span> U&gt; 
+</span><span>    </span><span style="color:#f92672;">where</span><span> U: ?Sized, F: FnOnce(</span><span style="color:#f92672;">&amp;</span><span>T) -&gt; </span><span style="color:#f92672;">&amp;</span><span>U 
+</span><span>  {
+</span><span>    </span><span style="font-style:italic;color:#66d9ef;">let</span><span> pointer </span><span style="color:#f92672;">= &amp;*</span><span>self.pointer;
+</span><span>    </span><span style="font-style:italic;color:#66d9ef;">let</span><span> new_pointer </span><span style="color:#f92672;">= </span><span style="color:#66d9ef;">func</span><span>(pointer);
+</span><span>    </span><span style="color:#f92672;">unsafe </span><span>{ Pin::new_unchecked(new_pointer) }
+</span><span>  }
+</span><span>}
+</span></code></pre>
+<p>然后是<code>Pin&lt;&amp; T&gt;</code>的两个方法. 第一个方法<code>get_ref</code>是把Pin这一层去掉返回<code>&amp;T</code>, 因为无法通过不可变引用移动T, 所以这个方法是安全的. 第二个方法<code>map_unchecked</code>用来做映射, 这边因为入参func是不可控的, 所以<code>func(pointer)</code>得到的<code>new_pointer</code>不一定会遵守Pin的约定, 所以只能通过不安全的<code>new_unchecked</code>来构造Pin, 所以这个方法也是不安全的.</p>
+<pre data-lang="rust" style="background-color:#272822;color:#f8f8f2;" class="language-rust "><code class="language-rust" data-lang="rust"><span style="color:#75715e;">// Pin&lt;P&lt;T&gt;&gt;调用as_mut转换成Pin&lt;&amp;mut T&gt;后就可以调用
+</span><span style="font-style:italic;color:#66d9ef;">impl</span><span>&lt;</span><span style="color:#f92672;">&#39;a</span><span>, T: </span><span style="background-color:#f92672;color:#f8f8f0;">?</span><span>Sized&gt; Pin&lt;</span><span style="color:#f92672;">&amp;&#39;a mut</span><span> T&gt; {
+</span><span>  </span><span style="color:#f92672;">pub </span><span style="font-style:italic;color:#66d9ef;">const fn </span><span style="color:#a6e22e;">get_mut</span><span>(</span><span style="font-style:italic;color:#fd971f;">self</span><span>) -&gt; </span><span style="color:#f92672;">&amp;&#39;a mut</span><span> T </span><span style="color:#f92672;">where</span><span> T: Unpin { self.pointer }
+</span><span>
+</span><span>  </span><span style="color:#f92672;">pub </span><span style="font-style:italic;color:#66d9ef;">const </span><span style="color:#f92672;">unsafe </span><span style="font-style:italic;color:#66d9ef;">fn </span><span style="color:#a6e22e;">get_unchecked_mut</span><span>(</span><span style="font-style:italic;color:#fd971f;">self</span><span>) -&gt; </span><span style="color:#f92672;">&amp;&#39;a mut</span><span> T { self.pointer }
+</span><span>
+</span><span>  </span><span style="color:#f92672;">pub unsafe </span><span style="font-style:italic;color:#66d9ef;">fn </span><span style="color:#a6e22e;">map_unchecked_mut</span><span>&lt;U, F&gt;(</span><span style="font-style:italic;color:#fd971f;">self</span><span>, </span><span style="font-style:italic;color:#fd971f;">func</span><span>: F) -&gt; Pin&lt;</span><span style="color:#f92672;">&amp;&#39;a mut</span><span> U&gt;
+</span><span>    </span><span style="color:#f92672;">where</span><span> U: ?Sized, F: FnOnce(</span><span style="color:#f92672;">&amp;mut</span><span> T) -&gt; </span><span style="color:#f92672;">&amp;mut</span><span> U { </span><span style="color:#f92672;">... </span><span>}
+</span><span>
+</span><span>  </span><span style="color:#f92672;">pub </span><span style="font-style:italic;color:#66d9ef;">const fn </span><span style="color:#a6e22e;">into_ref</span><span>(</span><span style="font-style:italic;color:#fd971f;">self</span><span>) -&gt; Pin&lt;</span><span style="color:#f92672;">&amp;&#39;a</span><span> T&gt; { Pin { pointer: self.pointer } }
+</span><span>}
+</span></code></pre>
+<p>最后是<code>Pin&lt;&amp;mut T&gt;</code>的几个方法. <code>get_mut</code>, <code>get_unchecked_mut</code>和上面的<code>get_ref</code>一样都是去掉Pin这一层, 但因为返回的是可变引用<code>&amp;mut T</code>, 所以根据T是Unpin还是!Unpin, 分成了安全方法<code>get_mut</code>和不安全方法<code>get_unchecked_mut</code>. <code>map_unchecked_mut</code>是<code>map_unchecked</code>的可变版本, 也是不安全的, 理由<code>map_unchecked</code>. <code>into_ref</code>方法则是扩展<code>as_ref</code>, 把<code>Pin&lt;&amp;mut T&gt;</code>也转换到<code>Pin&lt;&amp;T&gt;</code>, 从可变到不可变, 这个方法是安全的.</p>
+<h2 id="chang-jian-de-pin-p-t-lei-xing">常见的<code>Pin&lt;P&lt;T&gt;&gt;</code>类型</h2>
+<ul>
+<li>
+<p><code>Pin&lt;&amp;mut T&gt;</code></p>
+<pre data-lang="rust" style="background-color:#272822;color:#f8f8f2;" class="language-rust "><code class="language-rust" data-lang="rust"><span style="font-style:italic;color:#66d9ef;">fn </span><span style="color:#a6e22e;">move_pinned_ref</span><span>&lt;T&gt;(</span><span style="color:#f92672;">mut </span><span style="font-style:italic;color:#fd971f;">a</span><span>: T, </span><span style="color:#f92672;">mut </span><span style="font-style:italic;color:#fd971f;">b</span><span>: T) {
+</span><span>  </span><span style="color:#f92672;">unsafe </span><span>{
+</span><span>    </span><span style="color:#75715e;">// 通过可变引用 pin 住 a
+</span><span>    </span><span style="font-style:italic;color:#66d9ef;">let</span><span> p: Pin&lt;</span><span style="color:#f92672;">&amp;mut</span><span> T&gt; </span><span style="color:#f92672;">= </span><span>Pin::new_unchecked(</span><span style="color:#f92672;">&amp;mut</span><span> a);
+</span><span>  }
+</span><span>  </span><span style="color:#75715e;">// 还可以再次拿到 &amp;mut a, 不满足 pin 的约定
+</span><span>  std::mem::swap(</span><span style="color:#f92672;">&amp;mut</span><span> a, </span><span style="color:#f92672;">&amp;mut</span><span> b);
+</span><span>}
+</span></code></pre>
+<p>通过<code>&amp;mut T</code>构造的<code>Pin&lt;&amp;mut T&gt;</code>并不满足第二个约定条件, 比如下面的示例代码, 在释放掉p后依然可以拿到<code>&amp;mut a</code>, 从而可以移动a指向数据的位置. 尽管不满足Pin的约定, 但这段代码是可以通过编译的, 只是超出Pin生命周期后的承诺无法兑现. 对Rust来说, 这可能会导致库层面的未定义行为, 但不是语言层面的未定义行为, 所以在这里并不能提供更多的帮助, T可能是!Unpin的, 所以只能用不安全的<code>new_unchecked</code>方法.</p>
+</li>
+<li>
+<p><strong><code>Pin&lt;Box&lt;T&gt;&gt;</code></strong></p>
+<pre data-lang="rust" style="background-color:#272822;color:#f8f8f2;" class="language-rust "><code class="language-rust" data-lang="rust"><span style="font-style:italic;color:#66d9ef;">fn </span><span style="color:#a6e22e;">pin</span><span>(</span><span style="font-style:italic;color:#fd971f;">x</span><span>: T) -&gt; Pin&lt;</span><span style="font-style:italic;color:#66d9ef;">Box</span><span>&lt;T&gt;&gt; { </span><span style="color:#f92672;">unsafe </span><span>{ Pin::new_unchecked(</span><span style="font-style:italic;color:#66d9ef;">Box</span><span>::new(x)) } }
+</span></code></pre>
+<p><code>Box&lt;T&gt;</code>是满足Pin的两个约定的, 一是Box的解引用方法不会移动内部的T, 二是Pin释放后, Box也会被释放, 里面的T也直接释放掉了. Box提供了一个安全的包装方法, 不管T是Unpin的还是!Unpin的, 都可以直接用<code>Box::pin(T)</code>固定T.</p>
+</li>
+<li>
+<p><strong><code>Pin&lt;Rc&lt;T&gt;&gt;</code></strong></p>
+<pre data-lang="rust" style="background-color:#272822;color:#f8f8f2;" class="language-rust "><code class="language-rust" data-lang="rust"><span style="color:#75715e;">// Rc 提供的构造 Pin&lt;Rc&lt;T&gt;&gt; 的方法
+</span><span style="font-style:italic;color:#66d9ef;">fn </span><span style="color:#a6e22e;">pin</span><span>(</span><span style="font-style:italic;color:#fd971f;">value</span><span>: T) -&gt; Pin&lt;Rc&lt;T&gt;&gt; { </span><span style="color:#f92672;">unsafe </span><span>{ Pin::new_unchecked(Rc::new(value)) } }
+</span><span>
+</span><span style="font-style:italic;color:#66d9ef;">fn </span><span style="color:#a6e22e;">move_pinned_rc</span><span>&lt;T&gt;(</span><span style="color:#f92672;">mut </span><span style="font-style:italic;color:#fd971f;">a</span><span>: Rc&lt;T&gt;) {
+</span><span>  </span><span style="color:#75715e;">// 通过Rc指针 pin 住 a
+</span><span>  </span><span style="font-style:italic;color:#66d9ef;">let</span><span> pinned </span><span style="color:#f92672;">= unsafe </span><span>{ Pin::new_unchecked(Rc::clone(</span><span style="color:#f92672;">&amp;</span><span>a)) };
+</span><span>  {
+</span><span>    </span><span style="font-style:italic;color:#66d9ef;">let</span><span> p: Pin&lt;</span><span style="color:#f92672;">&amp;</span><span>T&gt; </span><span style="color:#f92672;">=</span><span> pinned.</span><span style="color:#66d9ef;">as_ref</span><span>();
+</span><span>  }
+</span><span>  </span><span style="color:#66d9ef;">drop</span><span>(pinned);
+</span><span>  </span><span style="color:#75715e;">// 还可以再次拿到 &amp;mut T, 不满足 pin 的约定
+</span><span>  </span><span style="font-style:italic;color:#66d9ef;">let</span><span> t: </span><span style="color:#f92672;">&amp;mut</span><span> T </span><span style="color:#f92672;">= </span><span>Rc::get_mut(</span><span style="color:#f92672;">&amp;mut</span><span> a).</span><span style="color:#66d9ef;">unwrap</span><span>();
+</span><span>}
+</span></code></pre>
+<p>虽然和Box一样, Rc也提供了安全的包装方法, 但<code>Pin&lt;Rc&lt;T&gt;&gt;</code>实际上并不太安全, 因为Rc不一定会满足第二点. 如上面的代码所示, Pin被释放后了, Rc也被释放, 但依然可以从其他的Rc拷贝里拿到<code>&amp;mut T</code>.</p>
+</li>
+</ul>
+</br>
+<p><em>-&gt; 如果文章有不足之处或者有改进的建议，可以在<a rel="noopener" target="_blank" href="https://github.com/dlzht/dlzht.github.io/discussions/8">这边</a>告诉我，也可以发送给我的<a href="mailto:dlzht@protonmail.com">邮箱</a></em></p>
+
+        </div>
+
+        
+        <div class="pagination">
+            <!-- <div class="pagination__title"> -->
+                <!-- <span class="pagination__title-h">++</span> -->
+                <!-- <hr /> -->
+            <!-- </div> -->
+            <div class="pagination__buttons">
+                    <span class="button previous">
+                        <a href="https://dlzht.github.io/006-rust-yi-bu-03/">
+                            <span class="button__icon">←</span>&nbsp;
+                            <span class="button__text">Rust异步3: async&#x2F;await语法</span>
+                        </a>
+                    </span>
+                
+                
+                    <span class="button next">
+                        <a href="https://dlzht.github.io/008-yi-wen-goshi-zen-yao-chu-li-zhan-de/">
+                            <span class="button__text">译文: Go是怎么处理栈的</span>&nbsp;
+                            <span class="button__icon">→</span>
+                        </a>
+                    </span>
+                </div>
+        </div>
+    
+    </div>
+
+    </div>
+
+    
+    <footer class="footer">
+        <div class="footer__inner">
+                <div class="copyright copyright--user">Email:&nbsp;<a href=mailto:dlzht@protonmail.com>dlzht@protonmail.com</a></div>
+            </div>
+    </footer>
+    
+
+</div>
+</body>
+
+</html>

@@ -1,0 +1,352 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <script async src="https://www.googletagmanager.com/gtag/js?id=G-Q8CTC2C6DM"></script>
+    <script>
+        window.dataLayer = window.dataLayer || [];
+        function gtag(){dataLayer.push(arguments);}
+        gtag('js', new Date());
+        gtag('config', 'G-Q8CTC2C6DM');
+    </script>
+
+    <title></title>
+    
+    <meta http-equiv="content-type" content="text/html; charset=utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1">
+    <meta name="robots" content="noodp"/>
+
+    <link rel="stylesheet" href="https://dlzht.github.io/style.css">
+    <link rel="stylesheet" href="https://dlzht.github.io/color/blue-light.css">
+
+        <link rel="stylesheet" href="https://dlzht.github.io/color/background_light.css">
+    
+    <link rel="stylesheet" href="https://dlzht.github.io/font-hack-subset.css">
+
+    <meta name="description" content="">
+
+    <meta property="og:description" content="">
+    <meta property="og:title" content="">
+    <meta property="og:type" content="article">
+    <meta property="og:url" content="https://dlzht.github.io/010-zou-ma-guan-hua-httpku-1/">
+
+    <meta name="twitter:card" content="summary_large_image">
+    <meta name="twitter:description" content="">
+    <meta name="twitter:title" content="">
+    <meta property="twitter:domain" content="dlzht.github.io">
+    <meta property="twitter:url" content="https://dlzht.github.io/010-zou-ma-guan-hua-httpku-1/">
+
+    </head>
+
+<body class="">
+<div class="container">
+    
+    <header class="header">
+        <div class="header__inner">
+            <div class="header__logo">
+                    
+                <a href="https://dlzht.github.io" style="text-decoration: none;">
+                    <div class="logo">
+                      
+                            QianQi dlzht@protonmail.com
+                        
+                    </div>
+                </a>
+            </div>
+        </div>
+
+        
+        
+                <nav class="menu">
+            <ul class="menu__inner">
+                <li class="active"><a href="https://dlzht.github.io">主页</a></li>
+            
+                <li><a href="https://dlzht.github.io/tags">标签</a></li>
+            
+                <li><a href="https://dlzht.github.io/about">关于</a></li>
+            
+                <li><a href="https://dlzht.github.io/archive">归档</a></li>
+            </ul>
+        </nav>
+    
+    
+        
+    </header>
+    
+
+    <div class="content">
+        
+    <div class="post">
+        
+    <h1 class="post-title"><a href="https://dlzht.github.io/010-zou-ma-guan-hua-httpku-1/">走马观花http库1</a></h1>
+    <div class="post-meta-inline">
+        
+    <span class="post-date">
+            2024-06-28
+        </span>
+
+    </div>
+
+    
+        <span class="post-tags-inline">
+                :: tags:&nbsp;
+                <a class="post-tag" href="https://dlzht.github.io/tags/rust/">#Rust</a>&nbsp;
+                <a class="post-tag" href="https://dlzht.github.io/tags/http/">#http</a>&nbsp;
+                <a class="post-tag" href="https://dlzht.github.io/tags/hyper/">#hyper</a></span>
+    
+
+        <div class="post-content">
+            <p><a rel="noopener" target="_blank" href="https://github.com/hyperium/http">http库</a>是用Rust编写的一个http基础库, 实现了Request, Response, Method等数据结构. <a rel="noopener" target="_blank" href="https://github.com/hyperium/hyper">hyper</a>是基于http库的, 而目前Rust的绝大多数web框架都基于hyper, 所以http库几乎是http协议在Rust中的&quot;标准实现&quot;.</p>
+<span id="continue-reading"></span>
+<p><em>http库的定位是通用的http基础库, 所以主要是实现了协议中需要用到的各种数据结构. 如果你需要的是应用层的开发, 服务端可以考虑<a rel="noopener" target="_blank" href="https://github.com/tokio-rs/axum">axum</a>, <a rel="noopener" target="_blank" href="https://github.com/seanmonstar/warp">warp</a>等, 客户端可以考虑<a rel="noopener" target="_blank" href="https://github.com/seanmonstar/reqwest">reqwest</a>, <a rel="noopener" target="_blank" href="https://github.com/algesten/ureq">ureq</a>等.</em></p>
+<h2 id="qing-qiu-request">请求Request</h2>
+<pre data-lang="txt" style="background-color:#272822;color:#f8f8f2;" class="language-txt "><code class="language-txt" data-lang="txt"><span>GET / HTTP/1.1     //方法是GET, 路径是/, 版本是HTTP/1.1
+</span><span>Accept: */*        //请求头Accept, 值是*/*
+</span><span>Content-Length: 6  //请求头Content-Length, 值是6
+</span><span>                   //空白行(/r/n)
+</span><span>form=1             //请求体
+</span></code></pre>
+<p>如上是一个http请求, 第一行是请求行, 包含方法, 路径和协议版本三部分; 第二行开始到空白行之间的是请求头, 每一行都是由冒号分割的键值对; 空白行之后的内容是请求体.</p>
+<pre data-lang="rust" style="background-color:#272822;color:#f8f8f2;" class="language-rust "><code class="language-rust" data-lang="rust"><span style="color:#f92672;">pub </span><span style="font-style:italic;color:#66d9ef;">struct </span><span>Request&lt;T&gt; {
+</span><span>  head: Parts,
+</span><span>  body: T,
+</span><span>}
+</span><span>
+</span><span style="color:#f92672;">pub </span><span style="font-style:italic;color:#66d9ef;">struct </span><span>Parts {
+</span><span>  </span><span style="color:#f92672;">pub </span><span>method: Method,                    </span><span style="color:#75715e;">//请求方法
+</span><span>  </span><span style="color:#f92672;">pub </span><span>uri: Uri,                          </span><span style="color:#75715e;">//请求路径
+</span><span>  </span><span style="color:#f92672;">pub </span><span>version: Version,                  </span><span style="color:#75715e;">//协议版本
+</span><span>  </span><span style="color:#f92672;">pub </span><span>headers: HeaderMap&lt;HeaderValue&gt;,   </span><span style="color:#75715e;">//请求头
+</span><span>  </span><span style="color:#f92672;">pub </span><span>extensions: Extensions,            </span><span style="color:#75715e;">//扩展项
+</span><span>}
+</span></code></pre>
+<p>Request类型包含了上面提到的字段, 这里<code>body</code>是泛型, 即可以是<code>Vec&lt;u8&gt;</code>这样的&quot;固定&quot;数据, 也可以是<code>Stream</code>这样的流式数据. <code>Extensions</code>是额外提供的扩展字段, 底层也是一个Map结构, 有些运行过程需要的数据会存在里面, 比如请求头的顺序.</p>
+<pre data-lang="rust" style="background-color:#272822;color:#f8f8f2;" class="language-rust "><code class="language-rust" data-lang="rust"><span style="font-style:italic;color:#66d9ef;">let</span><span> builder </span><span style="color:#f92672;">= </span><span>Request::builder();
+</span><span style="font-style:italic;color:#66d9ef;">let</span><span> request </span><span style="color:#f92672;">=</span><span> builder.</span><span style="color:#66d9ef;">method</span><span>(Method::</span><span style="color:#ae81ff;">GET</span><span>).</span><span style="color:#66d9ef;">uri</span><span>( </span><span style="color:#f92672;">... </span><span>).</span><span style="color:#66d9ef;">body</span><span>( </span><span style="color:#f92672;">... </span><span>);
+</span></code></pre>
+<p><code>Request::Builder</code>是创建Request的构造器, 可以链式地设置请求的各个属性, <code>body()</code>方法会返回构造结果<code>Result&lt;Request&gt;</code>, </p>
+<h2 id="xiang-ying-response">响应Response</h2>
+<pre data-lang="txt" style="background-color:#272822;color:#f8f8f2;" class="language-txt "><code class="language-txt" data-lang="txt"><span>HTTP/1.1 200 OK    //版本是HTTP/1.1, 状态码是200, 描述是OK
+</span><span>Content-Length: 4  //响应头Content-Length, 值是4
+</span><span>                   //空白行(/r/n)
+</span><span>body               //响应体
+</span></code></pre>
+<p>响应的结构和请求类似, 区别在于第一行, 构成响应行的部分是版本, 状态码和状态描述. 响应头和响应体则和上面请求一样. </p>
+<pre data-lang="rust" style="background-color:#272822;color:#f8f8f2;" class="language-rust "><code class="language-rust" data-lang="rust"><span style="color:#f92672;">pub </span><span style="font-style:italic;color:#66d9ef;">struct </span><span>Response&lt;T&gt; {
+</span><span>  head: Parts,
+</span><span>  body: T,
+</span><span>}
+</span><span>
+</span><span style="color:#f92672;">pub </span><span style="font-style:italic;color:#66d9ef;">struct </span><span>Parts {
+</span><span>  </span><span style="color:#f92672;">pub </span><span>status: StatusCode,               </span><span style="color:#75715e;">//响应状态码
+</span><span>  </span><span style="color:#f92672;">pub </span><span>version: Version,                 </span><span style="color:#75715e;">//协议版本
+</span><span>  </span><span style="color:#f92672;">pub </span><span>headers: HeaderMap&lt;HeaderValue&gt;,  </span><span style="color:#75715e;">//响应头
+</span><span>  </span><span style="color:#f92672;">pub </span><span>extensions: Extensions,           </span><span style="color:#75715e;">//扩展项
+</span><span>}
+</span><span>
+</span><span style="font-style:italic;color:#66d9ef;">let</span><span> builder </span><span style="color:#f92672;">= </span><span>Response::builder();
+</span><span style="font-style:italic;color:#66d9ef;">let</span><span> response </span><span style="color:#f92672;">=</span><span> builder.</span><span style="color:#66d9ef;">status</span><span>(StatusCode::</span><span style="color:#ae81ff;">OK</span><span>).</span><span style="color:#66d9ef;">body</span><span>( </span><span style="color:#f92672;">... </span><span>);
+</span></code></pre>
+<p>Response类型和Request大差不差, 同样也提供了链式的构造器<code>Response::Builder</code>.</p>
+<h2 id="qing-qiu-fang-fa-method">请求方法Method</h2>
+<pre data-lang="rust" style="background-color:#272822;color:#f8f8f2;" class="language-rust "><code class="language-rust" data-lang="rust"><span style="color:#f92672;">pub </span><span style="font-style:italic;color:#66d9ef;">struct </span><span>Method(Inner);
+</span><span>
+</span><span style="font-style:italic;color:#66d9ef;">enum </span><span>Inner {
+</span><span>  Options, Get, Patch,
+</span><span>  </span><span style="color:#f92672;">...
+</span><span>}
+</span></code></pre>
+<p><a rel="noopener" target="_blank" href="https://datatracker.ietf.org/doc/html/rfc9110#name-methods">RFC9110</a>中定义了GET, HEAD, POST, PUT, DELETE, CONNECT, OPTIONS和TRACE这些标准方法, 在代码实现中把PATCH也看作是标准方法.</p>
+<pre data-lang="rust" style="background-color:#272822;color:#f8f8f2;" class="language-rust "><code class="language-rust" data-lang="rust"><span style="font-style:italic;color:#66d9ef;">impl </span><span>Method {
+</span><span>    </span><span style="color:#f92672;">pub </span><span style="font-style:italic;color:#66d9ef;">const </span><span style="color:#ae81ff;">GET</span><span>: Method </span><span style="color:#f92672;">=</span><span> Method(Get);    
+</span><span>    </span><span style="color:#f92672;">pub </span><span style="font-style:italic;color:#66d9ef;">const </span><span style="color:#ae81ff;">POST</span><span>: Method </span><span style="color:#f92672;">=</span><span> Method(Post);
+</span><span>    </span><span style="color:#f92672;">...
+</span><span>}
+</span></code></pre>
+<p>标准方法在模块内被声明为const常量, 可以直接使用<code>Method::GET</code>, <code>Method::POST</code>.</p>
+<pre data-lang="rust" style="background-color:#272822;color:#f8f8f2;" class="language-rust "><code class="language-rust" data-lang="rust"><span style="font-style:italic;color:#66d9ef;">enum </span><span>Inner {
+</span><span>  </span><span style="color:#f92672;">...
+</span><span>  </span><span style="color:#75715e;">//两种自定义方法类型
+</span><span>  ExtensionInline(InlineExtension),
+</span><span>  ExtensionAllocated(AllocatedExtension),
+</span><span>}
+</span></code></pre>
+<p>标准方法之外的自定义方法, 根据方法名字的长度, 使用了<code>ExtensionInline</code>和<code>ExtensionAllocated</code>这两个类型来处理. </p>
+<p>当长度&lt;15(<code>InlineExtension::MAX</code>) 时, 用<code>ExtensionInline</code>类型表示, 存储结构是<code>([u8; 15], u8)</code>, 第一个字段是长度固定的字节数组, 第二个字段是实际使用的字节数.</p>
+<p>当长度&gt;=15时, 用<code>ExtensionAllocated</code>类型表示, 存储结构是<code>Box&lt;[u8]&gt;)</code>. 这时候数据被<code>Box</code>起来放到了堆上, 所以比起上面的固定数组, 会多一层堆访问.</p>
+<pre data-lang="rust" style="background-color:#272822;color:#f8f8f2;" class="language-rust "><code class="language-rust" data-lang="rust"><span style="color:#75715e;">// 方法名称长, 直接存储
+</span><span style="color:#f92672;">pub </span><span style="font-style:italic;color:#66d9ef;">struct </span><span>InlineExtension([</span><span style="font-style:italic;color:#66d9ef;">u8</span><span>; </span><span style="font-style:italic;color:#66d9ef;">InlineExtension::</span><span>MAX], </span><span style="font-style:italic;color:#66d9ef;">u8</span><span>);
+</span><span style="color:#75715e;">// 方法名称长, 堆上存储
+</span><span style="color:#f92672;">pub </span><span style="font-style:italic;color:#66d9ef;">struct </span><span>AllocatedExtension(</span><span style="font-style:italic;color:#66d9ef;">Box</span><span>&lt;[</span><span style="font-style:italic;color:#66d9ef;">u8</span><span>]&gt;);
+</span></code></pre>
+<p>根据名称长度用两种结构存储, 一方面在名称较短时, 可以减少堆访问, 考虑的是时间效率; 另一方面, 在名称较长时, 在堆上动态分配内存, 考虑的是空间效率. 这种对空间和时间之间的权衡, 和Redis的sds有的相似.</p>
+<pre data-lang="rust" style="background-color:#272822;color:#f8f8f2;" class="language-rust "><code class="language-rust" data-lang="rust"><span style="color:#f92672;">pub </span><span style="font-style:italic;color:#66d9ef;">fn </span><span style="color:#a6e22e;">from_bytes</span><span>(</span><span style="font-style:italic;color:#fd971f;">src</span><span>: </span><span style="color:#f92672;">&amp;</span><span>[</span><span style="font-style:italic;color:#66d9ef;">u8</span><span>]) -&gt; </span><span style="font-style:italic;color:#66d9ef;">Result</span><span>&lt;Method, InvalidMethod&gt; {
+</span><span>  </span><span style="color:#75715e;">//先匹配长度
+</span><span>  </span><span style="color:#f92672;">match</span><span> src.</span><span style="color:#66d9ef;">len</span><span>() {
+</span><span>    </span><span style="color:#ae81ff;">0 </span><span style="color:#f92672;">=&gt; </span><span style="font-style:italic;color:#66d9ef;">Err</span><span>(InvalidMethod::new()),
+</span><span>    </span><span style="color:#ae81ff;">3 </span><span style="color:#f92672;">=&gt; match</span><span> src {
+</span><span>      </span><span style="color:#75715e;">//再匹配字节
+</span><span>      </span><span style="font-style:italic;color:#66d9ef;">b</span><span style="color:#e6db74;">&quot;GET&quot; </span><span style="color:#f92672;">=&gt; </span><span style="font-style:italic;color:#66d9ef;">Ok</span><span>(Method(Get)),
+</span><span>      </span><span style="font-style:italic;color:#66d9ef;">b</span><span style="color:#e6db74;">&quot;PUT&quot; </span><span style="color:#f92672;">=&gt; </span><span style="font-style:italic;color:#66d9ef;">Ok</span><span>(Method(Put)),
+</span><span>      </span><span style="color:#f92672;">_ =&gt; </span><span>Method::extension_inline(src),
+</span><span>    },
+</span><span>    </span><span style="color:#f92672;">... 
+</span><span>    </span><span style="color:#75715e;">//自定义方法
+</span><span>    </span><span style="color:#f92672;">_ =&gt; </span><span>{
+</span><span>      </span><span style="color:#f92672;">if</span><span> src.</span><span style="color:#66d9ef;">len</span><span>() </span><span style="color:#f92672;">&lt; </span><span>InlineExtension::</span><span style="color:#ae81ff;">MAX </span><span>{
+</span><span>        Method::extension_inline(src)
+</span><span>      } </span><span style="color:#f92672;">else </span><span>{
+</span><span>        </span><span style="font-style:italic;color:#66d9ef;">let</span><span> allocated </span><span style="color:#f92672;">= </span><span>AllocatedExtension::new(src)</span><span style="color:#f92672;">?</span><span>;
+</span><span>        </span><span style="font-style:italic;color:#66d9ef;">Ok</span><span>(Method(ExtensionAllocated(allocated)))
+</span><span>      }
+</span><span>    }
+</span><span>  }
+</span><span>}      
+</span></code></pre>
+<p><code>from_bytes</code>函数可以从字节中解析Method实例, 比较入参的长度和字节, 如果是标准方法就直接返回; 如果是自定义方法, 就根据字节  长度解析成上面提到的两种的类型. </p>
+<pre data-lang="rust" style="background-color:#272822;color:#f8f8f2;" class="language-rust "><code class="language-rust" data-lang="rust"><span style="color:#75715e;">//查找表, 非法字符的位置都是0
+</span><span style="font-style:italic;color:#66d9ef;">const </span><span style="color:#ae81ff;">METHOD_CHARS</span><span>: [</span><span style="font-style:italic;color:#66d9ef;">u8</span><span>; </span><span style="color:#ae81ff;">256</span><span>] </span><span style="color:#f92672;">= </span><span>[</span><span style="font-style:italic;color:#66d9ef;">b</span><span style="color:#e6db74;">&#39;</span><span style="color:#ae81ff;">\0</span><span style="color:#e6db74;">&#39;</span><span>, </span><span style="font-style:italic;color:#66d9ef;">b</span><span style="color:#e6db74;">&#39;</span><span style="color:#ae81ff;">\0</span><span style="color:#e6db74;">&#39;</span><span>, </span><span style="font-style:italic;color:#66d9ef;">b</span><span style="color:#e6db74;">&#39;</span><span style="color:#ae81ff;">\0</span><span style="color:#e6db74;">&#39;</span><span>, </span><span style="font-style:italic;color:#66d9ef;">b</span><span style="color:#e6db74;">&#39;</span><span style="color:#ae81ff;">\0</span><span style="color:#e6db74;">&#39; </span><span style="color:#f92672;">... </span><span>];
+</span><span>
+</span><span style="font-style:italic;color:#66d9ef;">fn </span><span style="color:#a6e22e;">write_checked</span><span>(</span><span style="font-style:italic;color:#fd971f;">src</span><span>: </span><span style="color:#f92672;">&amp;</span><span>[</span><span style="font-style:italic;color:#66d9ef;">u8</span><span>], </span><span style="font-style:italic;color:#fd971f;">dst</span><span>: </span><span style="color:#f92672;">&amp;mut</span><span> [</span><span style="font-style:italic;color:#66d9ef;">u8</span><span>]) -&gt; </span><span style="font-style:italic;color:#66d9ef;">Result</span><span>&lt;(), InvalidMethod&gt; {
+</span><span>  </span><span style="color:#f92672;">for </span><span>(i, </span><span style="color:#f92672;">&amp;</span><span>b) </span><span style="color:#f92672;">in</span><span> src.</span><span style="color:#66d9ef;">iter</span><span>().</span><span style="color:#66d9ef;">enumerate</span><span>() {
+</span><span>    </span><span style="font-style:italic;color:#66d9ef;">let</span><span> b </span><span style="color:#f92672;">= </span><span style="color:#ae81ff;">METHOD_CHARS</span><span>[b </span><span style="color:#f92672;">as </span><span style="font-style:italic;color:#66d9ef;">usize</span><span>];
+</span><span>    </span><span style="color:#f92672;">if</span><span> b </span><span style="color:#f92672;">== </span><span style="color:#ae81ff;">0 </span><span>{
+</span><span>      </span><span style="color:#f92672;">return </span><span style="font-style:italic;color:#66d9ef;">Err</span><span>(InvalidMethod::new());
+</span><span>    }
+</span><span>    dst[i] </span><span style="color:#f92672;">=</span><span> b;
+</span><span>  }
+</span><span>  </span><span style="font-style:italic;color:#66d9ef;">Ok</span><span>(())
+</span><span>}
+</span></code></pre>
+<p>根据RFC中的描述, 请求方法的字节都要是可见的US-ASCII字符, 解析自定义方法时, <code>write_checked</code>方法会逐个字节检查是否合法, 这里用了<a rel="noopener" target="_blank" href="https://github.com/hyperium/http/blob/v1.1.0/src/method.rs#L375"><code>METHOD_CHARS</code></a>这样一张查找表. </p>
+<h2 id="xie-yi-ban-ben-version">协议版本Version</h2>
+<pre data-lang="rust" style="background-color:#272822;color:#f8f8f2;" class="language-rust "><code class="language-rust" data-lang="rust"><span style="color:#f92672;">pub </span><span style="font-style:italic;color:#66d9ef;">struct </span><span>Version(Http);
+</span><span>
+</span><span style="font-style:italic;color:#66d9ef;">enum </span><span>Http {
+</span><span>  Http09, Http10, 
+</span><span>  Http11, </span><span style="color:#ae81ff;">H2</span><span>, </span><span style="color:#ae81ff;">H3</span><span>,
+</span><span>  __NonExhaustive,
+</span><span>}
+</span></code></pre>
+<p>版本协议目前定义了5种, 即HTTP/0.9, HTTP/1.0, HTTP/1.1, HTTP/2.0和HTTP/3.0, 现实中最常见到的版本是HTTP/1.1和HTTP/2.</p>
+<pre data-lang="rust" style="background-color:#272822;color:#f8f8f2;" class="language-rust "><code class="language-rust" data-lang="rust"><span style="font-style:italic;color:#66d9ef;">impl </span><span>Version {
+</span><span>  </span><span style="color:#f92672;">pub </span><span style="font-style:italic;color:#66d9ef;">const </span><span style="color:#ae81ff;">HTTP_11</span><span>: Version </span><span style="color:#f92672;">=</span><span> Version(Http::Http11);
+</span><span>  </span><span style="color:#f92672;">pub </span><span style="font-style:italic;color:#66d9ef;">const </span><span style="color:#ae81ff;">HTTP_2</span><span>: Version </span><span style="color:#f92672;">=</span><span> Version(Http::</span><span style="color:#ae81ff;">H2</span><span>);
+</span><span>  </span><span style="color:#f92672;">...
+</span><span>}
+</span></code></pre>
+<p>同样, 也用const变量声明了这些协议版本, <code>Version::HTTP_11</code>可以直接使用.</p>
+<h2 id="zhuang-tai-ma-statuscode">状态码StatusCode</h2>
+<pre data-lang="rust" style="background-color:#272822;color:#f8f8f2;" class="language-rust "><code class="language-rust" data-lang="rust"><span style="color:#f92672;">pub </span><span style="font-style:italic;color:#66d9ef;">struct </span><span>StatusCode(NonZeroU16);
+</span></code></pre>
+<p>状态码实际就是个非零的正整数, 通常在[100, 600)这个区间内, 这边<code>StatusCode</code>类型中, 直接使用了<code>NonZeroU16</code>这样一个内部字段. </p>
+<pre data-lang="rust" style="background-color:#272822;color:#f8f8f2;" class="language-rust "><code class="language-rust" data-lang="rust"><span style="font-style:italic;color:#66d9ef;">impl </span><span>StatusCode {
+</span><span>  </span><span style="color:#f92672;">pub </span><span style="font-style:italic;color:#66d9ef;">const </span><span style="color:#ae81ff;">CONTINUE</span><span>: StatusCode </span><span style="color:#f92672;">=</span><span> StatusCode(</span><span style="color:#f92672;">unsafe </span><span>{ NonZeroU16::new_unchecked(</span><span style="color:#ae81ff;">100</span><span>) });
+</span><span>  </span><span style="color:#f92672;">pub </span><span style="font-style:italic;color:#66d9ef;">const </span><span style="color:#ae81ff;">SWITCHING_PROTOCOLS</span><span>: StatusCode </span><span style="color:#f92672;">=</span><span> StatusCode(</span><span style="color:#f92672;">unsafe </span><span>{ NonZeroU16::new_unchecked(</span><span style="color:#ae81ff;">101</span><span>) });
+</span><span>}
+</span><span>
+</span><span style="color:#75715e;">// 返回对应的状态描述
+</span><span style="font-style:italic;color:#66d9ef;">fn </span><span style="color:#a6e22e;">canonical_reason</span><span>(</span><span style="font-style:italic;color:#fd971f;">num</span><span>: </span><span style="font-style:italic;color:#66d9ef;">u16</span><span>) -&gt; </span><span style="font-style:italic;color:#66d9ef;">Option</span><span>&lt;</span><span style="color:#f92672;">&amp;&#39;static </span><span style="font-style:italic;color:#66d9ef;">str</span><span>&gt; {
+</span><span>  </span><span style="color:#f92672;">match</span><span> num {
+</span><span>    </span><span style="color:#ae81ff;">100 </span><span style="color:#f92672;">=&gt; </span><span style="font-style:italic;color:#66d9ef;">Some</span><span>(</span><span style="color:#e6db74;">&quot;Continue&quot;</span><span>),
+</span><span>    </span><span style="color:#ae81ff;">101 </span><span style="color:#f92672;">=&gt; </span><span style="font-style:italic;color:#66d9ef;">Some</span><span>(</span><span style="color:#e6db74;">&quot;Switching Protocols&quot;</span><span>),
+</span><span>    </span><span style="color:#f92672;">...
+</span><span>  }
+</span><span>}
+</span></code></pre>
+<p><a rel="noopener" target="_blank" href="https://datatracker.ietf.org/doc/html/rfc9110#status.codes">RFC9110</a>中也定义了一批标准状态码, 比如200表示请求成功, 404表示资源不存在. 同样也是用const变量声明了这些标准状态码, <code>canonical_reason</code>则返回标准状态码的描述信息.</p>
+<pre data-lang="rust" style="background-color:#272822;color:#f8f8f2;" class="language-rust "><code class="language-rust" data-lang="rust"><span>  </span><span style="color:#f92672;">pub </span><span style="font-style:italic;color:#66d9ef;">fn </span><span style="color:#a6e22e;">is_informational</span><span>(</span><span style="color:#f92672;">&amp;</span><span style="font-style:italic;color:#fd971f;">self</span><span>) -&gt; </span><span style="font-style:italic;color:#66d9ef;">bool </span><span>{ 
+</span><span>    </span><span style="color:#ae81ff;">200 </span><span style="color:#f92672;">&gt; </span><span>self.</span><span style="color:#ae81ff;">0.</span><span style="color:#66d9ef;">get</span><span>() </span><span style="color:#f92672;">&amp;&amp; </span><span>self.</span><span style="color:#ae81ff;">0.</span><span style="color:#66d9ef;">get</span><span>() </span><span style="color:#f92672;">&gt;= </span><span style="color:#ae81ff;">100
+</span><span>  }  
+</span><span>  </span><span style="color:#f92672;">pub </span><span style="font-style:italic;color:#66d9ef;">fn </span><span style="color:#a6e22e;">is_success</span><span>(</span><span style="color:#f92672;">&amp;</span><span style="font-style:italic;color:#fd971f;">self</span><span>) -&gt; </span><span style="font-style:italic;color:#66d9ef;">bool </span><span>{
+</span><span>    </span><span style="color:#ae81ff;">300 </span><span style="color:#f92672;">&gt; </span><span>self.</span><span style="color:#ae81ff;">0.</span><span style="color:#66d9ef;">get</span><span>() </span><span style="color:#f92672;">&amp;&amp; </span><span>self.</span><span style="color:#ae81ff;">0.</span><span style="color:#66d9ef;">get</span><span>() </span><span style="color:#f92672;">&gt;= </span><span style="color:#ae81ff;">200
+</span><span>  }     
+</span><span>  </span><span style="color:#f92672;">pub </span><span style="font-style:italic;color:#66d9ef;">fn </span><span style="color:#a6e22e;">is_redirection</span><span>(</span><span style="color:#f92672;">&amp;</span><span style="font-style:italic;color:#fd971f;">self</span><span>) -&gt; </span><span style="font-style:italic;color:#66d9ef;">bool </span><span>{
+</span><span>      </span><span style="color:#ae81ff;">400 </span><span style="color:#f92672;">&gt; </span><span>self.</span><span style="color:#ae81ff;">0.</span><span style="color:#66d9ef;">get</span><span>() </span><span style="color:#f92672;">&amp;&amp; </span><span>self.</span><span style="color:#ae81ff;">0.</span><span style="color:#66d9ef;">get</span><span>() </span><span style="color:#f92672;">&gt;= </span><span style="color:#ae81ff;">300
+</span><span>  }
+</span><span>  </span><span style="color:#f92672;">pub </span><span style="font-style:italic;color:#66d9ef;">fn </span><span style="color:#a6e22e;">is_client_error</span><span>(</span><span style="color:#f92672;">&amp;</span><span style="font-style:italic;color:#fd971f;">self</span><span>) -&gt; </span><span style="font-style:italic;color:#66d9ef;">bool </span><span>{
+</span><span>      </span><span style="color:#ae81ff;">500 </span><span style="color:#f92672;">&gt; </span><span>self.</span><span style="color:#ae81ff;">0.</span><span style="color:#66d9ef;">get</span><span>() </span><span style="color:#f92672;">&amp;&amp; </span><span>self.</span><span style="color:#ae81ff;">0.</span><span style="color:#66d9ef;">get</span><span>() </span><span style="color:#f92672;">&gt;= </span><span style="color:#ae81ff;">400
+</span><span>  }  
+</span><span>  </span><span style="color:#f92672;">pub </span><span style="font-style:italic;color:#66d9ef;">fn </span><span style="color:#a6e22e;">is_server_error</span><span>(</span><span style="color:#f92672;">&amp;</span><span style="font-style:italic;color:#fd971f;">self</span><span>) -&gt; </span><span style="font-style:italic;color:#66d9ef;">bool </span><span>{
+</span><span>      </span><span style="color:#ae81ff;">600 </span><span style="color:#f92672;">&gt; </span><span>self.</span><span style="color:#ae81ff;">0.</span><span style="color:#66d9ef;">get</span><span>() </span><span style="color:#f92672;">&amp;&amp; </span><span>self.</span><span style="color:#ae81ff;">0.</span><span style="color:#66d9ef;">get</span><span>() </span><span style="color:#f92672;">&gt;= </span><span style="color:#ae81ff;">500
+</span><span>  }    
+</span></code></pre>
+<p>[100, 200)的状态码是信息描述型的, [200, 300)表示请求成功, [300, 400)是重定向, [400, 500)是客户端错误, [500, 600)是服务端错误.</p>
+<h2 id="qing-qiu-lu-jing-uri">请求路径Uri</h2>
+<pre data-lang="txt" style="background-color:#272822;color:#f8f8f2;" class="language-txt "><code class="language-txt" data-lang="txt"><span>          userinfo          host    port
+</span><span>       ______|________   ____|____   |
+</span><span>      /               \ /         \ / \
+</span><span>abc://username:password@example.com:123/path/data?key=value&amp;key2=value2#fragid1
+</span><span>\_/   \_______________________________/\________/ \___________________/ \_____/
+</span><span> |                     |                    |               |              |
+</span><span>scheme             authority              path            query        fragment
+</span></code></pre>
+<p>用注释文档中的例子, &quot;完整&quot;的URI可以分成五个部分, 从Uri开头到<code>://</code>之间是scheme, <code>://</code>到第一个<code>/?#</code>字符之间是authority, 第一个<code>/</code>到第一个<code>?#</code>之间的是path, <code>?</code>到<code>#</code>之间的是query, <code>#</code>之后的是fragment.</p>
+<pre data-lang="rust" style="background-color:#272822;color:#f8f8f2;" class="language-rust "><code class="language-rust" data-lang="rust"><span style="color:#f92672;">pub </span><span style="font-style:italic;color:#66d9ef;">struct </span><span>Uri {
+</span><span>  scheme: Scheme,
+</span><span>  authority: Authority,
+</span><span>  path_and_query: PathAndQuery,
+</span><span>}
+</span><span>
+</span><span style="font-style:italic;color:#66d9ef;">fn </span><span style="color:#a6e22e;">parse_full</span><span>(</span><span style="color:#f92672;">mut </span><span style="font-style:italic;color:#fd971f;">s</span><span>: Bytes) -&gt; </span><span style="font-style:italic;color:#66d9ef;">Result</span><span>&lt;Uri, InvalidUri&gt; {
+</span><span>  </span><span style="color:#75715e;">// 解析scheme组件
+</span><span>  </span><span style="font-style:italic;color:#66d9ef;">let</span><span> scheme </span><span style="color:#f92672;">= match </span><span>Scheme2::parse( </span><span style="color:#f92672;">... </span><span>);
+</span><span>  </span><span style="color:#75715e;">// 解析authority组件
+</span><span>  </span><span style="font-style:italic;color:#66d9ef;">let</span><span> authority_end </span><span style="color:#f92672;">= </span><span>Authority::parse( </span><span style="color:#f92672;">... </span><span>)</span><span style="color:#f92672;">?</span><span>;
+</span><span>  </span><span style="color:#75715e;">// 解析path和query
+</span><span>  path_and_query: PathAndQuery::from_shared(s)</span><span style="color:#f92672;">?
+</span><span>  </span><span style="color:#f92672;">... 
+</span><span>}
+</span></code></pre>
+<p>解析Uri的主要逻辑在<code>parse_full</code>函数中, 除了上面描述的特殊字符分割规则, 还有校验字符合法, 处理<code>%</code>(URL编码), <code>[]</code>(  IPV6), 组件缺省等逻辑. </p>
+<pre data-lang="rust" style="background-color:#272822;color:#f8f8f2;" class="language-rust "><code class="language-rust" data-lang="rust"><span style="font-style:italic;color:#66d9ef;">let</span><span> authority </span><span style="color:#f92672;">= </span><span>Authority::from_static(</span><span style="color:#e6db74;">&quot;127.0.0.1:A&quot;</span><span>);
+</span><span style="font-style:italic;color:#66d9ef;">let</span><span> port </span><span style="color:#f92672;">=</span><span> authority.</span><span style="color:#66d9ef;">port</span><span>(); </span><span style="color:#75715e;">//port的值是None
+</span></code></pre>
+<p>需要注意的是, 目前的实现中并没有做很强的校验, 比如上面的代码是可以编译运行的, 不过<code>port</code>的值是<code>None</code>. </p>
+<h2 id="xie-yi-tou-headmap">协议头HeadMap</h2>
+<p>协议头的实现相对复杂, 放在后面单独一篇. 笼统地讲, 保存协议头的HeadMap结构和HashMap类似, 不过键是不区分大小写的, 而且同一个键可以有多个值.</p>
+</br>
+<p><em>-&gt; 如果文章有不足之处或者有改进的建议，可以在<a rel="noopener" target="_blank" href="https://github.com/dlzht/dlzht.github.io/discussions/11">这边</a>告诉我，也可以发送给我的<a href="mailto:dlzht@protonmail.com">邮箱</a></em></p>
+
+        </div>
+
+        
+        <div class="pagination">
+            <!-- <div class="pagination__title"> -->
+                <!-- <span class="pagination__title-h">++</span> -->
+                <!-- <hr /> -->
+            <!-- </div> -->
+            <div class="pagination__buttons">
+                    <span class="button previous">
+                        <a href="https://dlzht.github.io/009-redis-shi-jian-xun-huan/">
+                            <span class="button__icon">←</span>&nbsp;
+                            <span class="button__text">从redis源码讲事件循环</span>
+                        </a>
+                    </span>
+                
+                
+                    <span class="button next">
+                        <a href="https://dlzht.github.io/011-zou-ma-guan-hua-httpku-2/">
+                            <span class="button__text">走马观花http库2</span>&nbsp;
+                            <span class="button__icon">→</span>
+                        </a>
+                    </span>
+                </div>
+        </div>
+    
+    </div>
+
+    </div>
+
+    
+    <footer class="footer">
+        <div class="footer__inner">
+                <div class="copyright copyright--user">Email:&nbsp;<a href=mailto:dlzht@protonmail.com>dlzht@protonmail.com</a></div>
+            </div>
+    </footer>
+    
+
+</div>
+</body>
+
+</html>
